@@ -1,0 +1,52 @@
+CERTIFICATE OF REGISTRATION
+ISO/IEC 27001:2022 — Information Security Management System
+============================================================
+
+Certificate Number:  NL-2022-IS-0847
+Certificate Holder:  CloudSafe Solutions B.V.
+                     Keizersgracht 452
+                     1016 GD Amsterdam
+                     The Netherlands
+                     KvK: 72849301
+
+Certifying Body:     Bureau Veritas Certification Netherlands B.V.
+                     Accreditation: RvA — L 006
+
+Scope of Certification:
+    Design, development, operation and maintenance of cloud-based document
+    storage and archival services, including all supporting infrastructure,
+    security operations, and customer support functions.
+    Excludes: physical security of AWS data centres (covered under AWS ISO 27001 certificate).
+
+Standard:            ISO/IEC 27001:2022
+
+Initial Certification Date:  15 July 2022
+Certificate Issue Date:      15 July 2025
+Certificate Valid Until:     30 June 2027
+
+Subject to satisfactory surveillance audits conducted annually.
+
+Last Surveillance Audit:     14 June 2025
+Next Surveillance Audit:     Due June 2026
+Last Recertification Audit:  15 July 2025
+
+Audit Findings (most recent):
+- 0 Major non-conformities
+- 1 Minor non-conformity: Documentation of cryptographic key rotation procedure
+  was not updated after key management system upgrade (remediated within 30 days)
+- 3 Observations (opportunities for improvement, not non-conformities)
+
+Statement of Applicability (SoA) version: 3.2, dated 1 March 2025
+All Annex A controls included in scope. The following controls are excluded
+with justification:
+- A.7.3 (Securing offices, rooms and facilities) — No owned physical premises;
+  data centre security delegated to AWS (covered by AWS certifications)
+- A.7.4 (Physical security monitoring) — Same justification as A.7.3
+
+Signed by:
+[Bureau Veritas Certification]
+Lead Auditor: J. van der Berg RA CISSP
+Date: 15 July 2025
+
+This certificate remains the property of Bureau Veritas Certification Netherlands B.V.
+Validity subject to continued compliance with ISO/IEC 27001:2022 requirements.

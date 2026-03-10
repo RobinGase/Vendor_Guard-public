@@ -1,0 +1,54 @@
+VENDOR RISK ASSESSMENT QUESTIONNAIRE
+=====================================
+
+Vendor Name: CloudSafe Solutions B.V.
+Sector: Financial Services
+Services Provided: Cloud-based document storage, data archival, API-based data access
+Personal Data Processing: Yes — stores client financial records and personal identifiers
+AI System: No
+Dutch Government Client: No
+
+--- INFORMATION SECURITY ---
+
+ISO 27001 Certification: Yes — certified since 2022, valid until 2027-06-30, scope: all cloud services
+Information Security Policy: Documented, board-approved, reviewed annually
+Penetration Testing: Annual external pentest by Fox-IT, last conducted September 2025
+Vulnerability Management: Critical patches applied within 48 hours, high within 14 days
+Patch Management: Monthly patching cycle for all systems; out-of-band patching for critical CVEs
+Encryption at Rest: AES-256
+Encryption in Transit: TLS 1.3 enforced for all API endpoints
+MFA: Enforced for all employee accounts; mandatory for remote access and privileged accounts
+Access Reviews: Quarterly access reviews for all systems; annual recertification for privileged accounts
+Sub-processors: AWS (EU-West region, DPA signed), Cloudflare (CDN only, no personal data)
+
+--- INCIDENT MANAGEMENT ---
+
+Incident Response Plan: Documented, tested via tabletop exercise Q2 2025
+Incident Classification: 3-tier severity model (P1/P2/P3)
+Reporting SLA: P1 incidents reported to clients within 2 hours; regulatory reporting per NIS2 timelines
+NCSC Contact: Yes — registered contact point for NCSC notifications
+
+--- BUSINESS CONTINUITY ---
+
+Business Continuity Plan: Documented and board-approved
+Recovery Time Objective (RTO): 4 hours for all critical systems
+Recovery Point Objective (RPO): 1 hour maximum data loss
+BC Testing: Full failover test conducted annually, last tested March 2025
+Backup Retention: 90-day encrypted backups, stored in separate EU region
+
+--- SUPPLY CHAIN SECURITY ---
+
+Supplier Security Policy: Documented; all suppliers complete annual security questionnaire
+Sub-supplier Audit Rights: Contractually granted for material sub-processors
+Exit Strategy: Documented exit plan for all critical ICT dependencies; data portability guaranteed
+
+--- HUMAN RESOURCES SECURITY ---
+
+Security Training: Annual mandatory security awareness training for all staff; role-specific training for IT
+Background Checks: Conducted for all employees with access to personal data
+
+--- NOTES ---
+
+Currently seeking DORA compliance alignment as financial sector clients require it.
+No current government contracts.
+No AI systems in production; AI tooling under evaluation for 2026.

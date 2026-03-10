@@ -16,34 +16,60 @@ def test_finding_valid():
     assert f.severity == "High"
 
 
-def test_finding_invalid_status():
-    from pydantic import ValidationError
-    import pytest
-    with pytest.raises(ValidationError):
-        Finding(
-            framework="ISO 27001",
-            control_id="A.9.1",
-            control_name="Access control policy",
-            status="Unknown",
-            severity="High",
-            evidence="x",
-            recommendation="y",
-        )
+def test_finding_normalizes_unknown_status():
+    """Unknown status values fall back to Partial instead of crashing."""
+    f = Finding(
+        framework="ISO 27001",
+        control_id="A.9.1",
+        control_name="Access control policy",
+        status="Requires Monitoring",
+        severity="High",
+        evidence="x",
+        recommendation="y",
+    )
+    assert f.status == "Partial"
 
 
-def test_finding_invalid_severity():
-    from pydantic import ValidationError
-    import pytest
-    with pytest.raises(ValidationError):
-        Finding(
-            framework="ISO 27001",
-            control_id="A.9.1",
-            control_name="Access control policy",
-            status="Gap",
-            severity="Extreme",
-            evidence="x",
-            recommendation="y",
-        )
+def test_finding_normalizes_unknown_severity():
+    """Unknown severity values fall back to Medium instead of crashing."""
+    f = Finding(
+        framework="ISO 27001",
+        control_id="A.9.1",
+        control_name="Access control policy",
+        status="Gap",
+        severity="Extreme",
+        evidence="x",
+        recommendation="y",
+    )
+    assert f.severity == "Medium"
+
+
+def test_finding_normalizes_informational():
+    """'Informational' maps to 'Info'."""
+    f = Finding(
+        framework="DORA",
+        control_id="Art.9",
+        control_name="ICT risk",
+        status="Compliant",
+        severity="Informational",
+        evidence="x",
+        recommendation="y",
+    )
+    assert f.severity == "Info"
+
+
+def test_finding_normalizes_non_compliant():
+    """'Non-Compliant' maps to 'Gap'."""
+    f = Finding(
+        framework="NIS2",
+        control_id="Art.21",
+        control_name="MFA",
+        status="Non-Compliant",
+        severity="High",
+        evidence="x",
+        recommendation="y",
+    )
+    assert f.status == "Gap"
 
 
 def test_vendor_profile_defaults():

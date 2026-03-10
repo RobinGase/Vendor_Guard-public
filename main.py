@@ -10,6 +10,7 @@ from agents.ai_trust_agent import run_ai_trust_agent
 from synthesizer.synthesizer import aggregate_findings, compute_rag_scorecard
 from synthesizer.scorecard import write_scorecard, write_gap_register
 from synthesizer.memo import write_audit_memo
+from synthesizer.google_output import write_scorecard_csv, write_gap_register_csv, write_audit_memo_html
 from utils.document_parser import parse_documents
 from models.finding import Finding
 
@@ -54,19 +55,36 @@ def run_pipeline(
     scorecard = compute_rag_scorecard(all_findings)
 
     print("Writing outputs...")
-    scorecard_path = output_dir / "scorecard.xlsx"
-    gap_register_path = output_dir / "gap_register.xlsx"
-    memo_path = output_dir / "audit_memo.docx"
 
-    write_scorecard(scorecard, scorecard_path)
-    write_gap_register(all_findings, gap_register_path)
-    write_audit_memo(profile, all_findings, scorecard, memo_path)
+    # Draft memo text once, reuse for both DOCX and HTML
+    memo_text = write_audit_memo(profile, all_findings, scorecard, output_dir / "audit_memo.docx")
+
+    # Excel (Microsoft Office)
+    write_scorecard(scorecard, output_dir / "scorecard.xlsx")
+    write_gap_register(all_findings, output_dir / "gap_register.xlsx")
+
+    # Google Workspace (CSV + HTML)
+    write_scorecard_csv(scorecard, output_dir / "scorecard.csv")
+    write_gap_register_csv(all_findings, output_dir / "gap_register.csv")
+    write_audit_memo_html(profile, all_findings, scorecard, memo_text, output_dir / "audit_memo.html")
 
     print(f"\nDone. Outputs written to {output_dir}/")
+    print("\n  Microsoft Office:")
+    print("    scorecard.xlsx, gap_register.xlsx, audit_memo.docx")
+    print("  Google Workspace (drag & drop into Google Drive):")
+    print("    scorecard.csv, gap_register.csv, audit_memo.html")
+    print()
     for fw, data in scorecard.items():
         print(f"  {fw}: {data['rag']}")
 
-    return {"scorecard": scorecard_path, "gap_register": gap_register_path, "memo": memo_path}
+    return {
+        "scorecard_xlsx": output_dir / "scorecard.xlsx",
+        "gap_register_xlsx": output_dir / "gap_register.xlsx",
+        "memo_docx": output_dir / "audit_memo.docx",
+        "scorecard_csv": output_dir / "scorecard.csv",
+        "gap_register_csv": output_dir / "gap_register.csv",
+        "memo_html": output_dir / "audit_memo.html",
+    }
 
 
 def main():

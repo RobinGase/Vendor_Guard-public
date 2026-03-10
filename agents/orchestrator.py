@@ -1,5 +1,5 @@
-import json
 import anthropic
+from agents.base import extract_json
 from models.finding import VendorProfile
 
 MODEL = "claude-opus-4-6"
@@ -36,7 +36,7 @@ def build_vendor_profile(vendor_docs: str) -> VendorProfile:
         ],
     )
     raw = message.content[0].text.strip()
-    data = json.loads(raw)
+    data = extract_json(raw)
     return VendorProfile(**data)
 
 

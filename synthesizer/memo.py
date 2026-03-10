@@ -41,12 +41,12 @@ def _scorecard_summary(scorecard: dict) -> str:
     return "\n".join(lines)
 
 
-def write_audit_memo(
+def draft_memo_text(
     profile: VendorProfile,
     findings: list[Finding],
     scorecard: dict,
-    output_path: Path,
-):
+) -> str:
+    """Call Claude to draft the audit memo narrative. Returns plain text."""
     prompt = MEMO_PROMPT.format(
         vendor_name=profile.name,
         sector=profile.sector,
@@ -54,14 +54,25 @@ def write_audit_memo(
         scorecard=_scorecard_summary(scorecard),
         findings_summary=_findings_summary(findings),
     )
-
     client = anthropic.Anthropic()
     message = client.messages.create(
         model=MODEL,
         max_tokens=2048,
         messages=[{"role": "user", "content": prompt}],
     )
-    memo_text = message.content[0].text
+    return message.content[0].text
+
+
+def write_audit_memo(
+    profile: VendorProfile,
+    findings: list[Finding],
+    scorecard: dict,
+    output_path: Path,
+    memo_text: str = None,
+) -> str:
+    """Write audit memo as DOCX. Returns the memo text for reuse."""
+    if memo_text is None:
+        memo_text = draft_memo_text(profile, findings, scorecard)
 
     doc = Document()
     doc.add_heading(f"Vendor Risk Assessment: {profile.name}", 0)
@@ -74,3 +85,4 @@ def write_audit_memo(
             doc.add_paragraph("")
 
     doc.save(str(output_path))
+    return memo_text

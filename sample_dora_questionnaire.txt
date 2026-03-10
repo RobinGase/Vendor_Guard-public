@@ -1,0 +1,109 @@
+DORA THIRD-PARTY ICT RISK QUESTIONNAIRE
+Digital Operational Resilience Act — Vendor Self-Assessment
+===========================================================
+
+Vendor: CloudSafe Solutions B.V.
+Completed by: T. de Vries, Chief Information Security Officer
+Date: 1 March 2026
+Client: [To be completed by requesting financial entity]
+
+--- SECTION 1: ICT RISK MANAGEMENT FRAMEWORK ---
+
+Q1. Do you maintain a documented ICT risk management framework?
+A: Yes. Our ICT risk management framework is documented and board-approved (last reviewed
+   January 2026). It covers risk identification, assessment, treatment, monitoring and review.
+   The framework is aligned with ISO 27001 and references DORA requirements.
+
+Q2. Is the ICT risk management framework reviewed at least annually?
+A: Yes. Annual review conducted by CISO and approved by the Board of Directors.
+   Last review: January 2026. Next review: January 2027.
+
+Q3. Do you maintain an ICT asset inventory?
+A: Yes. Full ICT asset inventory maintained in ServiceNow CMDB, covering hardware,
+   software, data assets and third-party ICT dependencies. Updated in real time
+   via automated discovery agents. Last manual reconciliation: February 2026.
+
+--- SECTION 2: ICT INCIDENT MANAGEMENT ---
+
+Q4. Do you have a documented ICT incident management policy?
+A: Yes. Incident management policy covers detection, classification, escalation,
+   response, reporting and post-incident review.
+
+Q5. How do you classify ICT incidents?
+A: Three-tier classification:
+   - P1 (Major): Full service outage or confirmed data breach affecting multiple clients
+   - P2 (Significant): Degraded service or potential security incident
+   - P3 (Minor): Limited impact, no client effect
+
+Q6. Do you have reporting procedures aligned with DORA timelines?
+A: Partially. We have client notification SLAs (P1: 2 hours). We are currently
+   implementing formal regulatory reporting procedures aligned with DORA Article 19
+   (initial notification within 4 hours, intermediate within 72 hours, final within 1 month).
+   Expected completion: Q2 2026.
+   NOTE: This is an acknowledged gap being remediated.
+
+Q7. Do you maintain an ICT incident log?
+A: Yes. All incidents logged in ServiceNow with full timeline, impact assessment,
+   root cause analysis and remediation actions. Log retained for minimum 5 years.
+
+--- SECTION 3: DIGITAL OPERATIONAL RESILIENCE TESTING ---
+
+Q8. Do you conduct regular operational resilience testing?
+A: Yes. Annual penetration testing (Fox-IT, external). Last conducted September 2025.
+   Additionally: bi-annual vulnerability assessments, quarterly DR failover tests.
+
+Q9. Have you conducted Threat-Led Penetration Testing (TLPT)?
+A: No. TLPT has not been conducted. We are assessing whether TLPT is required
+   based on the size and systemic importance criteria. This is under review with
+   our legal advisors. Expected decision: Q3 2026.
+
+Q10. What is the scope of your resilience testing?
+A: External pentest covers all external-facing services and APIs.
+   Internal assessment covers internal network segmentation and lateral movement paths.
+   DR testing covers full failover to secondary AWS region (EU-West-2).
+
+--- SECTION 4: ICT THIRD-PARTY RISK MANAGEMENT ---
+
+Q11. Do you maintain a register of all ICT third-party service arrangements?
+A: Yes. Third-party ICT register maintained in GRC tool (ServiceNow GRC).
+   Currently 12 material ICT third-party arrangements documented.
+   Register reviewed quarterly.
+
+Q12. What contractual provisions do you offer for DORA compliance?
+A: Standard contract includes:
+   - Audit rights: Client may audit or commission audit annually with 30 days notice
+   - SLA: 99.9% availability guaranteed; financial penalties for breach
+   - Data portability: Full data export in standard formats within 30 days of termination
+   - Business continuity: Minimum 12-month notice for service discontinuation
+   - Sub-processor changes: Notification to clients 60 days in advance
+
+Q13. Do you have documented exit strategies for critical ICT services?
+A: Yes. Exit strategy documented for all critical ICT dependencies (AWS, Cloudflare).
+   Exit strategy for client offboarding: documented data migration procedure,
+   30-day parallel running option, full data export and deletion certificate.
+
+Q14. Are you aware of whether you may qualify as a Critical ICT Third-Party Provider (CTPP)?
+A: We have reviewed the CTPP designation criteria (Article 31 DORA / ESA assessment).
+   Based on our current client base and market share in the Netherlands, we do not
+   believe we meet the systemic importance threshold for CTPP designation.
+   We will monitor our position as our client base grows.
+
+--- SECTION 5: INFORMATION SHARING ---
+
+Q15. Do you participate in any information sharing arrangements regarding cyber threats?
+A: Yes. Member of ISAC FS-ISAC Netherlands and share threat intelligence via the
+   Dutch Financial Sector CERT (FSC). Threat intelligence integrated into our
+   SIEM (Splunk) via automated feeds.
+
+--- SECTION 6: ADDITIONAL DISCLOSURES ---
+
+Known DORA gaps being remediated:
+1. DORA Article 19 regulatory reporting timelines — in progress (Q2 2026)
+2. TLPT assessment — under review (Q3 2026)
+3. Formal DORA-specific risk appetite statement — drafting (Q2 2026)
+
+We confirm that all information provided in this questionnaire is accurate and complete
+to the best of our knowledge as of the date stated above.
+
+Signed: T. de Vries, CISO — CloudSafe Solutions B.V.
+Date: 1 March 2026

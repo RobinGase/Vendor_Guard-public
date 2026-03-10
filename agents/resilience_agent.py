@@ -1,6 +1,5 @@
-import json
 import anthropic
-from agents.base import load_prompt
+from agents.base import load_prompt, extract_json
 from models.finding import Finding
 
 MODEL = "claude-sonnet-4-6"
@@ -38,7 +37,7 @@ def run_resilience_agent(vendor_docs: str) -> list[Finding]:
     client = anthropic.Anthropic()
     message = client.messages.create(
         model=MODEL,
-        max_tokens=4096,
+        max_tokens=8192,
         system=system,
         messages=[
             {
@@ -49,5 +48,5 @@ def run_resilience_agent(vendor_docs: str) -> list[Finding]:
     )
 
     raw = message.content[0].text.strip()
-    findings_data = json.loads(raw)
+    findings_data = extract_json(raw)
     return [Finding(**f) for f in findings_data]

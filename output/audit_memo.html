@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Vendor Risk Assessment: CloudSafe Solutions B.V.</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 1100px; margin: 40px auto; color: #222; }
+  h1 { color: #2c3e50; border-bottom: 3px solid #2c3e50; padding-bottom: 8px; }
+  h2 { color: #2c3e50; margin-top: 40px; }
+  h3 { color: #34495e; }
+  table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 13px; }
+  th { background-color: #2c3e50; color: white; padding: 10px 12px; text-align: left; }
+  td { border: 1px solid #ddd; padding: 8px 12px; vertical-align: top; }
+  tr:nth-child(even) { background-color: #f9f9f9; }
+  .meta { color: #666; margin-bottom: 32px; }
+  .memo { background: #f8f8f8; border-left: 4px solid #2c3e50; padding: 20px; margin: 16px 0; }
+</style>
+</head>
+<body>
+
+<h1>Vendor Risk Assessment: CloudSafe Solutions B.V.</h1>
+<div class="meta">
+  <strong>Sector:</strong> Finance &nbsp;|&nbsp;
+  <strong>Services:</strong> Cloud-based document storage, Data archival, API-based data access &nbsp;|&nbsp;
+  <strong>AI System:</strong> No &nbsp;|&nbsp;
+  <strong>Government Vendor:</strong> No
+</div>
+
+<h2>Risk Scorecard</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Framework</th><th>RAG Status</th><th>Total Controls</th>
+      <th>Gaps</th><th>Critical</th><th>High</th><th>Partial</th>
+    </tr>
+  </thead>
+  <tbody>
+        <tr>
+            <td>DORA</td>
+            <td style="background-color:#FF6B6B; font-weight:bold; text-align:center">Red</td>
+            <td style="text-align:center">10</td>
+            <td style="text-align:center">3</td>
+            <td style="text-align:center">1</td>
+            <td style="text-align:center">1</td>
+            <td style="text-align:center">5</td>
+        </tr>
+        <tr>
+            <td>ISO 27001</td>
+            <td style="background-color:#FF6B6B; font-weight:bold; text-align:center">Red</td>
+            <td style="text-align:center">12</td>
+            <td style="text-align:center">2</td>
+            <td style="text-align:center">0</td>
+            <td style="text-align:center">1</td>
+            <td style="text-align:center">3</td>
+        </tr>
+        <tr>
+            <td>NIS2</td>
+            <td style="background-color:#FFD93D; font-weight:bold; text-align:center">Amber</td>
+            <td style="text-align:center">8</td>
+            <td style="text-align:center">0</td>
+            <td style="text-align:center">0</td>
+            <td style="text-align:center">0</td>
+            <td style="text-align:center">2</td>
+        </tr>
+        <tr>
+            <td>CBW</td>
+            <td style="background-color:#FF6B6B; font-weight:bold; text-align:center">Red</td>
+            <td style="text-align:center">3</td>
+            <td style="text-align:center">2</td>
+            <td style="text-align:center">0</td>
+            <td style="text-align:center">1</td>
+            <td style="text-align:center">0</td>
+        </tr></tbody>
+</table>
+
+<h2>Audit Memo</h2>
+<div class="memo">
+<h3># VENDOR RISK ASSESSMENT MEMO</h3>
+<p>**To:** Chief Information Security Officer / IT Risk Committee</p>
+<p>**From:** IT Audit Manager, Third-Party Risk Management</p>
+<p>**Date:** [Current Date]</p>
+<p>**Subject:** Vendor Risk Assessment — CloudSafe Solutions B.V.</p>
+<p>**Classification:** Confidential — Internal Use Only</p>
+<p>**Assessment Reference:** VRA-2025-CSB-041</p>
+<p>---</p>
+<p>## 1. Executive Summary</p>
+<p>CloudSafe Solutions B.V. (&quot;the Vendor&quot;) presents an overall **High residual risk** rating based on our assessment across four regulatory and standards frameworks: DORA, ISO 27001, NIS2, and the Dutch Cyberbeveiligingswet (CBW). While the Vendor demonstrates a mature baseline security posture, evidenced by a valid ISO/IEC 27001:2022 certification and a clean SOC 2 Type II report, material gaps exist in DORA compliance that pose significant regulatory exposure to our organization as a financial-sector client. Most critically, the Vendor has no documented mechanism for reporting major ICT-related incidents to the appropriate financial competent authority (e.g., De Nederlandsche Bank) as mandated by DORA Articles 19 through 23, instead relying exclusively on NIS2 notification pathways through the NCSC, which are legally and procedurally distinct. Additional concerns include the absence of a standalone ICT risk management framework, the lack of an ICT asset inventory, missing data leakage prevention controls despite the processing of client financial records and personal identifiers, and unaddressed CBW sector-specific obligations. **Our recommendation is to defer any new contract execution or material scope expansion with CloudSafe Solutions B.V. until the critical DORA incident reporting gap is formally remediated, and to condition continued engagement on the Vendor&#x27;s adherence to a time-bound remediation plan addressing all High-severity findings within 90 days.**</p>
+<p>---</p>
+<p>## 2. Assessment Scope</p>
+<p>### 2.1 Frameworks Assessed</p>
+<p>| Framework | Version / Reference | Overall Rating |</p>
+<p>|---|---|---|</p>
+<p>| Digital Operational Resilience Act (DORA) | Regulation (EU) 2022/2554, Articles 5 through 44 | **Red** (3 gaps, 1 critical) |</p>
+<p>| ISO/IEC 27001:2022 | Annex A controls (selected) | **Red** (2 gaps, 0 critical) |</p>
+<p>| Network and Information Security Directive (NIS2) | Directive (EU) 2022/2555, Article 21 | **Amber** (0 gaps, 0 critical) |</p>
+<p>| Cyberbeveiligingswet (CBW) | Dutch transposition of NIS2 | **Red** (2 gaps, 0 critical) |</p>
+<p>### 2.2 Documents Reviewed</p>
+<p>The following source documents formed the basis of this assessment:</p>
+<h3>1. **Vendor Security Questionnaire** — completed by CloudSafe Solutions B.V., received [date].</h3>
+<h3>2. **SOC 2 Type II Report** — prepared by KPMG, covering H1 2025, examining security, availability, and confidentiality trust service criteria.</h3>
+<h3>3. **ISO/IEC 27001:2022 Certificate** — certificate number NL-2022-IS-0847, valid until 30 June 2027, with most recent surveillance audit conducted June 2025 (one minor non-conformity, remediated).</h3>
+<p>No client-facing Master Service Agreement (MSA), ICT risk management framework document, ICT asset inventory, incident log, cryptographic policy, or DORA control mapping was provided or available for review.</p>
+<p>### 2.3 Vendor Profile</p>
+<p>| Attribute | Detail |</p>
+<p>|---|---|</p>
+<p>| Legal Entity | CloudSafe Solutions B.V. |</p>
+<p>| Headquarters | Amsterdam, Netherlands |</p>
+<p>| Services Provided | Cloud-based document storage, data archival, API-based data access |</p>
+<p>| Data Processed | Client financial records, personal identifiers |</p>
+<p>| Infrastructure | AWS EU-West-1 (primary), AWS EU-West-2 (backup/DR) |</p>
+<p>| Sub-processors | AWS, Cloudflare, PagerDuty |</p>
+<p>---</p>
+<p>## 3. Key Findings</p>
+<p>### 3.1 DORA — Digital Operational Resilience Act (Overall: Red)</p>
+<p>The DORA assessment revealed the most significant concentration of material findings. One critical gap and multiple high-severity partial compliance issues were identified across key articles.</p>
+<p>**Critical Finding — Incident Reporting to Financial Competent Authority (Art. 19-23):**</p>
+<p>The Vendor&#x27;s incident reporting regime is aligned exclusively to NIS2 requirements, with the NCSC designated as the sole notification body. DORA mandates that major ICT-related incidents affecting financial entities be reported to the relevant financial competent authority, such as DNB for Dutch-supervised entities, or to EBA, EIOPA, or ESMA as applicable. The required DORA reporting timelines (initial notification within 4 hours of major incident classification, intermediate report within 72 hours, and final report within 1 month) are not referenced in any reviewed document. This gap represents a direct regulatory compliance failure that could result in supervisory sanctions against our organization as the contracting financial entity.</p>
+<p>**ICT Risk Management Framework (Art. 5-9):**</p>
+<p>Although the Vendor maintains ISO 27001 certification and a board-approved Information Security Policy, DORA requires a standalone, explicitly documented ICT risk management framework with specific mapping to Articles 5 through 16. No such framework document was referenced or provided. The absence of this artefact means that compliance with the foundational DORA ICT governance requirements cannot be verified.</p>
+<p>**ICT Asset Inventory (Art. 10):**</p>
+<p>No formal ICT asset inventory covering hardware, software, and data assets was referenced in any reviewed document. While the SOC 2 report provides a high-level description of infrastructure components (AWS EU-West-1, encryption standards, sub-processors), this does not constitute a structured asset register with classification, ownership, and dependency mapping as contemplated by Article 10.</p>
+<p>**Incident Classification and Reporting Alignment (Art. 17-18):**</p>
+<p>The Vendor operates a three-tier severity model (P1/P2/P3) validated by SOC 2 testing (CC7.2, no exceptions). However, incident classification criteria are not mapped to the DORA-specific major incident classification taxonomy defined in Article 18, including criteria such as the number of affected clients, geographic spread, data losses, duration, and economic impact. No incident log is referenced as a maintained artefact.</p>
+<p>**Threat-Led Penetration Testing (Art. 26-27):**</p>
+<p>Annual penetration testing by Fox-IT is documented and confirmed by SOC 2 (CC7.1). However, standard penetration testing does not satisfy the DORA requirement for Threat-Led Penetration Testing (TLPT) conducted under a TIBER-EU or equivalent methodology. TLPT is an intelligence-led, red-team exercise required every three years for significant entities or critical third-party providers (CTPPs). Given the Vendor&#x27;s financial-sector client base, TLPT applicability should be formally assessed.</p>
+<p>**Third-Party ICT Service Provider Arrangements (Art. 28, Art. 30):**</p>
+<p>Sub-processors are identified and basic supplier management processes are in place. However, no register of ICT third-party service arrangements in the format prescribed by Article 28(3) was provided. Furthermore, no client-facing MSA was made available for review, precluding verification that contractual provisions meet DORA Article 30 requirements, including explicit SLA commitments, competent authority audit rights, data portability guarantees, orderly exit provisions, business continuity obligations, and sub-contracting notification clauses.</p>
+<p>**CTPP Designation Risk (Art. 28(8), Art. 31-44):**</p>
+<p>The Vendor&#x27;s sole reliance on AWS EU-West-1 creates concentration risk. Furthermore, the Vendor&#x27;s stated ambition to achieve DORA compliance alignment for its financial-sector clients implies a material and potentially growing client base in the regulated financial sector. If the Vendor serves a significant number of, or systemically important, financial entities, it may be designated as a Critical Third-Party Provider (CTPP) by the European Supervisory Authorities, subjecting it to direct supervisory oversight. No information was provided on the number, type, or systemic importance of the Vendor&#x27;s financial-entity clients.</p>
+<p>**Compliant Areas (DORA):**</p>
+<p>It is noted that the Vendor demonstrates compliance in the areas of digital operational resilience testing at the basic level (Art. 24-25), with weekly vulnerability scanning, annual penetration testing, and timely CVE remediation. Business continuity and disaster recovery (Art. 11) are well-documented, with validated RTO of 4 hours, RPO of 1 hour, quarterly recovery testing, and 99.97% uptime confirmed by SOC 2.</p>
+<p>### 3.</p>
+
+</div>
+
+<h2>Gap Register</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Framework</th><th>Control ID</th><th>Control Name</th>
+      <th>Status</th><th>Severity</th><th>Evidence</th><th>Recommendation</th>
+    </tr>
+  </thead>
+  <tbody>
+        <tr>
+            <td>DORA</td>
+            <td>Art.5-9</td>
+            <td>ICT risk management framework</td>
+            <td style="background-color:#FFD93D">Partial</td>
+            <td style="background-color:#FFA07A">High</td>
+            <td>Vendor holds ISO/IEC 27001:2022 certification (cert NL-2022-IS-0847, valid until 30 June 2027, 0 major non-conformities at last recertification July 2025) with a board-approved Information Security Policy reviewed annually. SOC 2 Type II report (KPMG, H1 2025) confirms operating effectiveness of security, availability and confidentiality controls. However, no explicitly labelled &#x27;ICT risk management framework&#x27; document is referenced in any of the three files. DORA requires a standalone, documented ICT risk management framework distinct from an ISMS policy. No ICT asset inventory document is cited, and no explicit mapping of controls to DORA Articles 5-16 is provided.</td>
+            <td>Produce and share a dedicated ICT risk management framework document explicitly aligned with DORA Articles 5-16, including governance structure, risk appetite statement, ICT asset inventory (hardware, software, data), and control mapping. Confirm board-level accountability as required by Art.5.</td>
+        </tr>
+        <tr>
+            <td>DORA</td>
+            <td>Art.10</td>
+            <td>ICT asset inventory</td>
+            <td style="background-color:#FF6B6B">Gap</td>
+            <td style="background-color:#FFA07A">High</td>
+            <td>No ICT asset inventory (hardware, software, data assets) is referenced or provided in any of the three documents. The SOC 2 report describes infrastructure at a high level (AWS EU-West-1, AES-256, TLS 1.3) and lists sub-processors, but no formal asset register or inventory management process is documented.</td>
+            <td>Establish and maintain a formal ICT asset inventory covering all hardware, software, and data assets as required by DORA Art.10. Make this inventory available for client audit upon request.</td>
+        </tr>
+        <tr>
+            <td>DORA</td>
+            <td>Art.17-18</td>
+            <td>ICT-related incident classification and reporting</td>
+            <td style="background-color:#FFD93D">Partial</td>
+            <td style="background-color:#FFA07A">High</td>
+            <td>A 3-tier severity model (P1/P2/P3) is documented and confirmed by SOC 2 (CC7.2 — no exceptions noted). P1 client notification within 2 hours is confirmed. Regulatory reporting is described as following &#x27;NIS2 timelines&#x27; and NCSC contact is registered. However, no reference is made to DORA-specific incident classification criteria (Art.18) or to DORA mandatory reporting timelines: initial report within 4 hours of major incident classification, intermediate report within 72 hours, and final report within 1 month. NIS2 and DORA reporting regimes are distinct. No incident log is explicitly referenced as a maintained artefact.</td>
+            <td>Update the incident response policy to incorporate DORA Art.17-18 classification criteria and the three-stage DORA reporting timeline (4h initial, 72h intermediate, 1 month final) to competent financial supervisory authorities. Maintain and make available a dedicated ICT incident log per DORA Art.17(1). Clearly distinguish DORA reporting obligations from NIS2 obligations in internal procedures.</td>
+        </tr>
+        <tr>
+            <td>DORA</td>
+            <td>Art.19-23</td>
+            <td>Major incident reporting to competent authority</td>
+            <td style="background-color:#FF6B6B">Gap</td>
+            <td style="background-color:#FF6B6B">Critical</td>
+            <td>The questionnaire states regulatory reporting follows &#x27;NIS2 timelines&#x27; with NCSC as the notification body. DORA requires major ICT-related incident reports to be submitted to the relevant financial competent authority (e.g., DNB for Dutch financial entities) — not to NCSC — within specific DORA deadlines. No reference to DORA-aligned major incident reporting to a financial supervisor (DNB/EBA/EIOPA/ESMA) is present in any document.</td>
+            <td>Establish a DORA-specific major incident reporting procedure targeting the appropriate financial competent authority (e.g., DNB) within DORA Art.19-23 timelines. Differentiate this workflow from NIS2/NCSC reporting. Ensure contractual provisions oblige CloudSafe to notify financial-entity clients in time for those clients to meet their own regulatory reporting deadlines.</td>
+        </tr>
+        <tr>
+            <td>DORA</td>
+            <td>Art.24-25</td>
+            <td>Digital operational resilience testing — basic testing</td>
+            <td style="background-color:#6BCB77">Compliant</td>
+            <td style="background-color:#E0E0E0">Info</td>
+            <td>Annual external penetration test conducted by Fox-IT, last performed September 2025, confirmed in both the questionnaire and SOC 2 report (CC7.1). Weekly automated vulnerability scanning via Tenable.io with no critical or high vulnerabilities open beyond SLA during the audit period. Critical CVEs remediated within 48 hours, high within 14 days. ISO 27001 surveillance audit conducted June 2025 with only one minor non-conformity (remediated). These activities satisfy DORA Art.24-25 basic testing requirements (vulnerability assessments, network assessments).</td>
+            <td>Ensure test results and remediation evidence are formally documented and retained, and are available to financial-entity clients and their competent authorities upon request. Consider explicitly labelling these activities as DORA Art.24-25 basic resilience tests in internal records.</td>
+        </tr>
+        <tr>
+            <td>DORA</td>
+            <td>Art.26-27</td>
+            <td>Threat-Led Penetration Testing (TLPT)</td>
+            <td style="background-color:#FF6B6B">Gap</td>
+            <td style="background-color:#FFD93D">Medium</td>
+            <td>Annual external penetration testing by Fox-IT is documented, but no reference to Threat-Led Penetration Testing (TLPT) per DORA Art.26-27 methodology (TIBER-EU or equivalent) is made in any document. TLPT is a structured, intelligence-led, red-team exercise distinct from a standard penetration test and is required every 3 years for significant entities or CTPPs.</td>
+            <td>Assess whether CloudSafe qualifies as a significant entity or is likely to be designated a CTPP. If so, plan and schedule TLPT exercises in accordance with DORA Art.26-27 and the TIBER-EU framework. Even if TLPT is not yet mandatory for CloudSafe itself, financial-entity clients may contractually require participation in joint TLPT exercises; ensure contractual and operational readiness for this.</td>
+        </tr>
+        <tr>
+            <td>DORA</td>
+            <td>Art.28</td>
+            <td>ICT third-party risk management — register of arrangements</td>
+            <td style="background-color:#FFD93D">Partial</td>
+            <td style="background-color:#FFD93D">Medium</td>
+            <td>Sub-processors are identified: AWS (EU-West-1, DPA signed), Cloudflare (CDN/DDoS, no personal data), PagerDuty (on-call alerting, no personal data). The questionnaire states a Supplier Security Policy exists and all suppliers complete annual security questionnaires, with contractual audit rights for material sub-processors. However, no formal register of ICT third-party service arrangements in the format required by DORA Art.28(3) is referenced, and no pre-contract due diligence documentation is provided.</td>
+            <td>Maintain a formal register of all ICT third-party service arrangements per DORA Art.28(3) and make it available to financial-entity clients and competent authorities. Document pre-contract due diligence for all sub-processors, including risk assessments and concentration risk analysis. Provide evidence of this register upon client request.</td>
+        </tr>
+        <tr>
+            <td>DORA</td>
+            <td>Art.30</td>
+            <td>Contractual provisions with ICT third-party providers</td>
+            <td style="background-color:#FFD93D">Partial</td>
+            <td style="background-color:#FFA07A">High</td>
+            <td>The questionnaire references: documented exit plan for critical ICT dependencies, data portability guaranteed, contractual audit rights for material sub-processors, and DPAs signed with AWS. The SOC 2 report confirms AWS and Cloudflare sub-processor relationships. However, no client-facing contract or Master Service Agreement is provided for review. It cannot be confirmed whether CloudSafe&#x27;s contracts with its financial-entity clients include all DORA Art.30 mandatory provisions: explicit SLA commitments, audit rights granted to the financial entity and its competent authority, data portability and orderly exit clauses, business continuity obligations, and sub-contracting notification obligations.</td>
+            <td>Provide standard contractual terms or a contract summary demonstrating inclusion of all DORA Art.30 mandatory provisions: SLAs, audit and inspection rights (including by competent authorities), data location and portability, sub-contracting rules, business continuity requirements, and termination/exit rights. Update contracts with existing financial-entity clients to ensure DORA compliance ahead of applicable deadlines.</td>
+        </tr>
+        <tr>
+            <td>DORA</td>
+            <td>Art.28(8)-Art.44</td>
+            <td>Critical ICT Third-Party Provider (CTPP) designation risk</td>
+            <td style="background-color:#FFD93D">Partial</td>
+            <td style="background-color:#FFA07A">High</td>
+            <td>CloudSafe Solutions B.V. provides cloud-based document storage, data archival, and API-based data access to financial-sector clients, processing client financial records and personal identifiers. The vendor notes it is &#x27;seeking DORA compliance alignment as financial sector clients require it,&#x27; implying a material and growing financial-sector client base. AWS EU-West-1 is the sole infrastructure provider, creating potential concentration risk. If CloudSafe&#x27;s services are used by a significant number or systemically important financial entities, ESAs (EBA, EIOPA, ESMA) may designate CloudSafe as a CTPP under DORA Art.28(8) and Art.31, subjecting it to direct supervisory oversight. No information is provided on the number, type, or systemic importance of CloudSafe&#x27;s financial-entity clients.</td>
+            <td>CloudSafe should assess whether its scale of financial-sector service provision meets CTPP designation criteria (systemic importance, number of financial entities served, substitutability). Proactively engage legal counsel to evaluate CTPP risk. Begin preparing for direct oversight requirements (Art.31-44) including oversight fees, information requests, and inspection readiness. Disclose the extent of the financial-sector client base in future assessments.</td>
+        </tr>
+        <tr>
+            <td>DORA</td>
+            <td>Art.11</td>
+            <td>Business continuity policy for ICT services</td>
+            <td style="background-color:#6BCB77">Compliant</td>
+            <td style="background-color:#E0E0E0">Info</td>
+            <td>Board-approved Business Continuity Plan is documented. RTO of 4 hours and RPO of 1 hour are stated and validated by testing (full DR failover March 2025 — all systems restored within 3.5 hours, within RTO). Recovery testing conducted quarterly. 90-day encrypted backups stored in a separate EU region (AWS EU-West-2, London). BC plan tested via tabletop exercise Q2 2025. SOC 2 A1.1 (Availability — Capacity Management) confirms 99.97% uptime during audit period with no exceptions.</td>
+            <td>Ensure the Business Continuity Plan explicitly references ICT service continuity in the context of DORA Art.11 and covers scenarios involving failure of critical sub-processors (AWS concentration risk). Document and retain BCP test results for client and regulatory review.</td>
+        </tr>
+        <tr>
+            <td>ISO 27001</td>
+            <td>A.5.19</td>
+            <td>Information security in supplier relationships</td>
+            <td style="background-color:#6BCB77">Compliant</td>
+            <td style="background-color:#FFFACD">Low</td>
+            <td>Vendor questionnaire states: &#x27;Supplier Security Policy: Documented; all suppliers complete annual security questionnaire.&#x27; SOC 2 report confirms sub-processors (AWS, Cloudflare, PagerDuty) are identified with defined roles. DPA signed with AWS.</td>
+            <td>No immediate action required. Confirm that the supplier security policy covers all Annex A-relevant controls and is reviewed at least annually.</td>
+        </tr>
+        <tr>
+            <td>ISO 27001</td>
+            <td>A.5.20</td>
+            <td>Addressing security within supplier agreements</td>
+            <td style="background-color:#6BCB77">Compliant</td>
+            <td style="background-color:#FFFACD">Low</td>
+            <td>Vendor questionnaire confirms DPA signed with AWS. Sub-supplier audit rights are contractually granted for material sub-processors. Exit strategy and data portability are documented. SOC 2 report confirms AWS and Cloudflare are under formal agreements.</td>
+            <td>Verify that security requirements in sub-processor agreements explicitly reference relevant ISO 27001 controls and NIS2 obligations, particularly for PagerDuty where no DPA mention is provided.</td>
+        </tr>
+        <tr>
+            <td>ISO 27001</td>
+            <td>A.5.21</td>
+            <td>ICT supply chain security</td>
+            <td style="background-color:#FFD93D">Partial</td>
+            <td style="background-color:#FFD93D">Medium</td>
+            <td>Vendor questionnaire identifies AWS and Cloudflare as sub-processors with DPAs and defined scopes. SOC 2 report adds PagerDuty as a sub-processor. However, no evidence of a formal ICT supply chain risk assessment or supply chain security programme beyond annual questionnaires is provided.</td>
+            <td>Implement and document a formal ICT supply chain risk assessment process. Ensure all ICT dependencies, including PagerDuty, are covered by appropriate contractual security requirements and periodic risk reviews.</td>
+        </tr>
+        <tr>
+            <td>ISO 27001</td>
+            <td>A.5.22</td>
+            <td>Monitoring, review and change management of supplier services</td>
+            <td style="background-color:#FFD93D">Partial</td>
+            <td style="background-color:#FFD93D">Medium</td>
+            <td>Annual security questionnaires are completed by suppliers. Audit rights are contractually granted. However, no evidence is provided of ongoing monitoring of supplier performance, formal periodic review meetings, or a documented process for managing supplier service changes.</td>
+            <td>Establish a documented supplier monitoring programme including periodic performance reviews, change notification requirements, and a process to assess the impact of supplier changes on CloudSafe&#x27;s security posture.</td>
+        </tr>
+        <tr>
+            <td>ISO 27001</td>
+            <td>A.8.2</td>
+            <td>Privileged access rights</td>
+            <td style="background-color:#6BCB77">Compliant</td>
+            <td style="background-color:#FFFACD">Low</td>
+            <td>SOC 2 report confirms: &#x27;Privileged access management via CyberArk PAM solution.&#x27; Vendor questionnaire states quarterly access reviews for all systems and annual recertification for privileged accounts. SOC 2 CC6.1 test found no exceptions across 25 sampled accounts.</td>
+            <td>Consider increasing privileged account recertification frequency from annual to semi-annual to align with leading practice, given the sensitivity of financial data processed.</td>
+        </tr>
+        <tr>
+            <td>ISO 27001</td>
+            <td>A.8.3</td>
+            <td>Information access restriction</td>
+            <td style="background-color:#6BCB77">Compliant</td>
+            <td style="background-color:#FFFACD">Low</td>
+            <td>SOC 2 report confirms RBAC is implemented across all systems, separation of duties is enforced between development, operations and security teams, and access reviews are conducted quarterly with line manager certification. SOC 2 CC6.2 test (15 new-hire provisioning tickets) found no exceptions.</td>
+            <td>No immediate action required. Ensure RBAC matrices are formally documented and version-controlled to support audit evidence.</td>
+        </tr>
+        <tr>
+            <td>ISO 27001</td>
+            <td>A.8.5</td>
+            <td>Secure authentication</td>
+            <td style="background-color:#6BCB77">Compliant</td>
+            <td style="background-color:#FFFACD">Low</td>
+            <td>Vendor questionnaire states MFA is enforced for all employee accounts and is mandatory for remote access and privileged accounts. SOC 2 report confirms &#x27;Multi-factor authentication (MFA) mandatory for all employees.&#x27; CC6.1 test found no exceptions.</td>
+            <td>No immediate action required. Confirm that MFA is also enforced for customer-facing API access where applicable, and document the authentication policy formally.</td>
+        </tr>
+        <tr>
+            <td>ISO 27001</td>
+            <td>A.8.7</td>
+            <td>Protection against malware</td>
+            <td style="background-color:#FF6B6B">Gap</td>
+            <td style="background-color:#FFD93D">Medium</td>
+            <td>No evidence of anti-malware controls, endpoint detection and response (EDR), or malware protection policy is present in any of the three documents reviewed.</td>
+            <td>Provide documentation of anti-malware controls, including endpoint protection solutions deployed, coverage scope, update cadence, and any EDR capabilities in use.</td>
+        </tr>
+        <tr>
+            <td>ISO 27001</td>
+            <td>A.8.8</td>
+            <td>Management of technical vulnerabilities</td>
+            <td style="background-color:#6BCB77">Compliant</td>
+            <td style="background-color:#FFFACD">Low</td>
+            <td>Vendor questionnaire states critical patches applied within 48 hours, high within 14 days, and monthly patching cycle with out-of-band patching for critical CVEs. SOC 2 report confirms weekly Tenable.io scans, annual Fox-IT penetration test (September 2025), and CC7.1 test found no exceptions — all critical and high vulnerabilities remediated within SLA during the audit period.</td>
+            <td>No immediate action required. Consider publishing a formal vulnerability disclosure policy (VDP) for external researchers.</td>
+        </tr>
+        <tr>
+            <td>ISO 27001</td>
+            <td>A.8.12</td>
+            <td>Data leakage prevention</td>
+            <td style="background-color:#FF6B6B">Gap</td>
+            <td style="background-color:#FFA07A">High</td>
+            <td>No evidence of data leakage prevention (DLP) controls, policies, or tooling is mentioned in any of the three documents reviewed, despite the vendor processing client financial records and personal identifiers.</td>
+            <td>Implement and document DLP controls covering data in use, in motion, and at rest. Given the financial data processed, DLP controls are particularly critical and their absence represents a material gap.</td>
+        </tr>
+        <tr>
+            <td>ISO 27001</td>
+            <td>A.8.24</td>
+            <td>Use of cryptography</td>
+            <td style="background-color:#FFD93D">Partial</td>
+            <td style="background-color:#FFD93D">Medium</td>
+            <td>Vendor questionnaire and SOC 2 report confirm AES-256 encryption at rest and TLS 1.3 for data in transit. Backups are encrypted with a separate key from production. However, the ISO 27001 certificate (most recent audit) identified a minor non-conformity: &#x27;Documentation of cryptographic key rotation procedure was not updated after key management system upgrade&#x27; — remediated within 30 days. No formal cryptographic policy document is referenced.</td>
+            <td>Confirm that the key rotation procedure documentation has been fully updated and approved following remediation of the minor non-conformity. Provide a copy of the formal cryptographic policy referenced in the SoA.</td>
+        </tr>
+        <tr>
+            <td>ISO 27001</td>
+            <td>A.8.28</td>
+            <td>Secure coding</td>
+            <td style="background-color:#6BCB77">Compliant</td>
+            <td style="background-color:#FFFACD">Low</td>
+            <td>SOC 2 report states: &#x27;Code reviewed via pull request process; automated SAST scanning on all commits.&#x27; Production changes require approval from two senior engineers. Emergency changes require post-implementation review within 24 hours.</td>
+            <td>Consider adding dynamic application security testing (DAST) and software composition analysis (SCA) to complement existing SAST controls, particularly for third-party dependencies.</td>
+        </tr>
+        <tr>
+            <td>NIS2</td>
+            <td>Art.21-RM</td>
+            <td>Cybersecurity risk management</td>
+            <td style="background-color:#FFD93D">Partial</td>
+            <td style="background-color:#FFD93D">Medium</td>
+            <td>Vendor questionnaire references a board-approved information security policy reviewed annually. ISO 27001 certification with SoA version 3.2 implies a risk treatment process exists. However, no explicit mention of a documented cybersecurity risk management policy or the frequency of formal risk assessments is provided in any document.</td>
+            <td>Provide documentation of the cybersecurity risk management policy and evidence of regular (at minimum annual) risk assessments, including risk treatment records, to demonstrate NIS2 Article 21 compliance.</td>
+        </tr>
+        <tr>
+            <td>NIS2</td>
+            <td>Art.21-IH</td>
+            <td>Incident handling and reporting timelines</td>
+            <td style="background-color:#6BCB77">Compliant</td>
+            <td style="background-color:#FFFACD">Low</td>
+            <td>Vendor questionnaire states: &#x27;Regulatory reporting per NIS2 timelines.&#x27; NCSC contact point is registered. SOC 2 report confirms documented incident response policy tested via tabletop exercise Q2 2025, P1 client notification within 2 hours, and security incidents reported to Dutch NCSC per regulatory obligations. Three-tier severity model (P1/P2/P3) is in place.</td>
+            <td>Confirm that internal procedures explicitly reference the NIS2 24-hour early warning, 72-hour notification, and 1-month final report obligations in writing, and that these are tested in tabletop exercises.</td>
+        </tr>
+        <tr>
+            <td>NIS2</td>
+            <td>Art.21-BC</td>
+            <td>Business continuity, backup and disaster recovery</td>
+            <td style="background-color:#6BCB77">Compliant</td>
+            <td style="background-color:#FFFACD">Low</td>
+            <td>Vendor questionnaire and SOC 2 report confirm: board-approved BCP, RTO of 4 hours, RPO of 1 hour, 90-day encrypted backups stored in a separate EU region (AWS EU-West-2), quarterly recovery testing, and full DR failover test completed March 2025 — all systems restored within 3.5 hours (within 4-hour RTO).</td>
+            <td>No immediate action required. Confirm that crisis management procedures are documented separately from the BCP and cover communication chains for regulatory and client notification during a major incident.</td>
+        </tr>
+        <tr>
+            <td>NIS2</td>
+            <td>Art.21-SC</td>
+            <td>Supply chain security</td>
+            <td style="background-color:#FFD93D">Partial</td>
+            <td style="background-color:#FFD93D">Medium</td>
+            <td>Sub-processors are identified (AWS, Cloudflare, PagerDuty). DPA is signed with AWS. Annual security questionnaires are completed by suppliers. Contractual audit rights granted for material sub-processors. However, no evidence of a formal supply chain risk assessment programme addressing NIS2 supply chain security requirements is provided.</td>
+            <td>Conduct and document a formal supply chain risk assessment covering all sub-processors and ICT dependencies. Ensure contractual security requirements for all sub-processors explicitly reference NIS2 Article 21 obligations.</td>
+        </tr>
+        <tr>
+            <td>NIS2</td>
+            <td>Art.21-NIS</td>
+            <td>Network and information systems security — access control and vulnerability management</td>
+            <td style="background-color:#6BCB77">Compliant</td>
+            <td style="background-color:#FFFACD">Low</td>
+            <td>RBAC, MFA, CyberArk PAM, quarterly access reviews, and separation of duties are confirmed in the SOC 2 report. Weekly Tenable.io vulnerability scans and annual penetration testing are in place. Critical CVEs remediated within 48 hours. SOC 2 CC7.1 test found no exceptions.</td>
+            <td>Provide evidence of network segmentation controls to fully demonstrate NIS2 network security requirements, as no explicit mention of network segmentation is present in the reviewed documents.</td>
+        </tr>
+        <tr>
+            <td>NIS2</td>
+            <td>Art.21-MFA</td>
+            <td>Multi-factor authentication</td>
+            <td style="background-color:#6BCB77">Compliant</td>
+            <td style="background-color:#FFFACD">Low</td>
+            <td>Vendor questionnaire states MFA is enforced for all employee accounts, mandatory for remote access and privileged accounts. SOC 2 report confirms &#x27;Multi-factor authentication (MFA) mandatory for all employees.&#x27; CC6.1 audit test found no exceptions.</td>
+            <td>No immediate action required. Confirm MFA enforcement extends to any administrative interfaces accessible by sub-processors or third parties.</td>
+        </tr>
+        <tr>
+            <td>NIS2</td>
+            <td>Art.21-CRYPT</td>
+            <td>Cryptography and encryption</td>
+            <td style="background-color:#6BCB77">Compliant</td>
+            <td style="background-color:#FFFACD">Low</td>
+            <td>AES-256 encryption at rest and TLS 1.3 in transit confirmed by both the vendor questionnaire and SOC 2 report. Backup encryption uses a separate key from production. Minor non-conformity on key rotation documentation was remediated within 30 days per the ISO 27001 certificate.</td>
+            <td>Provide the updated cryptographic key rotation procedure to confirm the remediated minor non-conformity is fully closed and documented.</td>
+        </tr>
+        <tr>
+            <td>NIS2</td>
+            <td>Art.21-HR</td>
+            <td>Human resources security and security awareness training</td>
+            <td style="background-color:#6BCB77">Compliant</td>
+            <td style="background-color:#FFFACD">Low</td>
+            <td>Vendor questionnaire confirms annual mandatory security awareness training for all staff, role-specific training for IT personnel, and background checks for all employees with access to personal data.</td>
+            <td>Consider increasing training frequency or adding phishing simulation exercises to strengthen the security awareness programme beyond annual mandatory training.</td>
+        </tr>
+        <tr>
+            <td>CBW</td>
+            <td>CBW-REG</td>
+            <td>CBW applicability and NCSC registration</td>
+            <td style="background-color:#6BCB77">Compliant</td>
+            <td style="background-color:#FFFACD">Low</td>
+            <td>Vendor questionnaire states: &#x27;NCSC Contact: Yes — registered contact point for NCSC notifications.&#x27; SOC 2 report confirms: &#x27;Security incidents reported to Dutch NCSC per regulatory obligations.&#x27; Vendor is headquartered in Amsterdam and operates in financial services.</td>
+            <td>Confirm that the NCSC registration is current and that the designated contact point is included in the incident response plan with up-to-date contact details. Verify awareness of any sector-specific obligations under DNB supervision applicable to financial sector cloud service providers.</td>
+        </tr>
+        <tr>
+            <td>CBW</td>
+            <td>CBW-SECTOR</td>
+            <td>Sector authority compliance (DNB for financial services)</td>
+            <td style="background-color:#FF6B6B">Gap</td>
+            <td style="background-color:#FFA07A">High</td>
+            <td>The vendor operates in financial services and processes client financial records. The vendor questionnaire notes DORA compliance alignment is being sought. However, no evidence is provided of engagement with or compliance assessment against Dutch sector authority requirements (e.g., DNB) applicable under the CBW for ICT service providers to the financial sector.</td>
+            <td>Assess and document whether CloudSafe Solutions B.V. falls within the scope of DNB supervisory requirements under the CBW and DORA. Engage with applicable sector authorities and document compliance status. Provide evidence of formal DORA readiness assessment given the financial sector client base.</td>
+        </tr>
+        <tr>
+            <td>CBW</td>
+            <td>CBW-IRP</td>
+            <td>Dutch-language incident reporting procedure</td>
+            <td style="background-color:#FF6B6B">Gap</td>
+            <td style="background-color:#FFD93D">Medium</td>
+            <td>The vendor references NCSC reporting and NIS2-compliant timelines, and confirms an NCSC contact point. However, no evidence of a Dutch-language incident reporting procedure or Dutch-specific reporting templates aligned to CBW requirements is present in any of the reviewed documents.</td>
+            <td>Develop and maintain a Dutch-language incident reporting procedure that covers NCSC notification requirements under the CBW, including the required reporting timelines and designated contact details.</td>
+        </tr></tbody>
+</table>
+
+</body>
+</html>
