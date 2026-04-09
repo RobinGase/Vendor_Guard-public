@@ -1,5 +1,5 @@
 import anthropic
-from agents.base import load_prompt, extract_json
+from agents.base import load_prompt, extract_json, require_anthropic_api_key
 from models.finding import Finding
 
 MODEL = "claude-sonnet-4-6"
@@ -46,7 +46,7 @@ def run_security_agent(vendor_docs: str) -> list[Finding]:
 
     system = SYSTEM_PROMPT.format(iso27001=iso27001, nis2=nis2, cbw=cbw)
 
-    client = anthropic.Anthropic()
+    client = anthropic.Anthropic(api_key=require_anthropic_api_key())
     message = client.messages.create(
         model=MODEL,
         max_tokens=8192,

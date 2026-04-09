@@ -43,3 +43,24 @@ def test_compute_rag_critical_gap_is_red():
     ]
     scorecard = compute_rag_scorecard(findings)
     assert scorecard["DORA"]["rag"] == "Red"
+
+
+def test_aggregate_findings_deduplicates_and_sorts():
+    findings = [
+        Finding(framework="ISO 27001", control_id="A.8.8", control_name="Patch mgmt",
+                status="Partial", severity="Medium", evidence="Monthly cycle.", recommendation="Add SLA."),
+        Finding(framework="DORA", control_id="Art.9", control_name="ICT risk",
+                status="Gap", severity="Critical", evidence="Missing framework.", recommendation="Document framework."),
+        Finding(framework="ISO 27001", control_id="A.8.8", control_name="Patch mgmt",
+                status="Gap", severity="High", evidence="No critical patch SLA.", recommendation="Define SLA."),
+    ]
+
+    result = aggregate_findings(findings)
+
+    assert len(result) == 2
+    assert result[0].framework == "DORA"
+    assert result[0].severity == "Critical"
+    assert result[1].framework == "ISO 27001"
+    assert result[1].status == "Gap"
+    assert result[1].severity == "High"
+    assert result[1].evidence == "No critical patch SLA."

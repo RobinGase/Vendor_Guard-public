@@ -40,6 +40,7 @@ def run_pipeline(
     print(f"Running agents: {agents_to_run}")
 
     all_findings: list[Finding] = []
+    failed_agents: list[tuple[str, Exception]] = []
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = {
             executor.submit(AGENT_MAP[name], vendor_docs): name
@@ -47,7 +48,12 @@ def run_pipeline(
         }
         for future in concurrent.futures.as_completed(futures):
             name = futures[future]
-            findings = future.result()
+            try:
+                findings = future.result()
+            except Exception as exc:
+                failed_agents.append((name, exc))
+                print(f"  {name}: FAILED ({exc})")
+                continue
             print(f"  {name}: {len(findings)} findings")
             all_findings.extend(findings)
 
@@ -73,6 +79,10 @@ def run_pipeline(
     print("    scorecard.xlsx, gap_register.xlsx, audit_memo.docx")
     print("  Google Workspace (drag & drop into Google Drive):")
     print("    scorecard.csv, gap_register.csv, audit_memo.html")
+    if failed_agents:
+        print("  Agent failures:")
+        for name, exc in failed_agents:
+            print(f"    {name}: {exc}")
     print()
     for fw, data in scorecard.items():
         print(f"  {fw}: {data['rag']}")
@@ -84,6 +94,7 @@ def run_pipeline(
         "scorecard_csv": output_dir / "scorecard.csv",
         "gap_register_csv": output_dir / "gap_register.csv",
         "memo_html": output_dir / "audit_memo.html",
+        "failed_agents": failed_agents,
     }
 
 

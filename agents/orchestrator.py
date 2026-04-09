@@ -1,5 +1,5 @@
 import anthropic
-from agents.base import extract_json
+from agents.base import extract_json, require_anthropic_api_key
 from models.finding import VendorProfile
 
 MODEL = "claude-opus-4-6"
@@ -23,7 +23,7 @@ Return ONLY the JSON object. No preamble or markdown fences.
 
 
 def build_vendor_profile(vendor_docs: str) -> VendorProfile:
-    client = anthropic.Anthropic()
+    client = anthropic.Anthropic(api_key=require_anthropic_api_key())
     message = client.messages.create(
         model=MODEL,
         max_tokens=1024,

@@ -1,4 +1,5 @@
 import json
+import os
 import re
 from pathlib import Path
 
@@ -10,6 +11,13 @@ def load_prompt(name: str) -> str:
     if not path.exists():
         raise FileNotFoundError(f"Prompt file not found: {path}")
     return path.read_text(encoding="utf-8")
+
+
+def require_anthropic_api_key() -> str:
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise RuntimeError("ANTHROPIC_API_KEY is not set. Configure it before running Vendor Guard.")
+    return api_key
 
 
 def extract_json(raw: str):

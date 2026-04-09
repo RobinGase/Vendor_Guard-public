@@ -1,5 +1,5 @@
 import anthropic
-from agents.base import load_prompt, extract_json
+from agents.base import load_prompt, extract_json, require_anthropic_api_key
 from models.finding import Finding
 
 MODEL = "claude-sonnet-4-6"
@@ -34,7 +34,7 @@ def run_gov_baseline_agent(vendor_docs: str) -> list[Finding]:
     bio2 = load_prompt("bio2_controls")
     system = SYSTEM_PROMPT.format(bio2=bio2)
 
-    client = anthropic.Anthropic()
+    client = anthropic.Anthropic(api_key=require_anthropic_api_key())
     message = client.messages.create(
         model=MODEL,
         max_tokens=8192,

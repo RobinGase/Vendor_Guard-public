@@ -55,3 +55,14 @@ def test_security_agent_returns_list(mocker):
 
     findings = run_security_agent(SAMPLE_VENDOR_DOCS)
     assert isinstance(findings, list)
+
+
+def test_security_agent_requires_api_key(monkeypatch, mocker):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    mocker.patch(
+        "agents.security_agent.anthropic.Anthropic",
+        side_effect=AssertionError("client should not be created without API key"),
+    )
+
+    with pytest.raises(RuntimeError, match="ANTHROPIC_API_KEY"):
+        run_security_agent(SAMPLE_VENDOR_DOCS)

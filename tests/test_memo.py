@@ -54,3 +54,16 @@ def test_write_audit_memo_calls_claude(tmp_path, mocker):
     out = tmp_path / "memo.docx"
     write_audit_memo(PROFILE, FINDINGS, SCORECARD, out)
     assert mock_client.messages.create.called
+
+
+def test_write_audit_memo_falls_back_when_claude_fails(tmp_path, mocker):
+    mock_client = MagicMock()
+    mock_client.messages.create.side_effect = RuntimeError("anthropic unavailable")
+    mocker.patch("synthesizer.memo.anthropic.Anthropic", return_value=mock_client)
+
+    out = tmp_path / "memo.docx"
+    memo_text = write_audit_memo(PROFILE, FINDINGS, SCORECARD, out)
+
+    assert out.exists()
+    assert "Executive Summary" in memo_text
+    assert "anthropic unavailable" not in memo_text

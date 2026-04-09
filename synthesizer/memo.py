@@ -2,6 +2,7 @@ import json
 import anthropic
 from pathlib import Path
 from docx import Document
+from agents.base import require_anthropic_api_key
 from models.finding import Finding, VendorProfile
 
 MODEL = "claude-opus-4-6"
@@ -54,13 +55,56 @@ def draft_memo_text(
         scorecard=_scorecard_summary(scorecard),
         findings_summary=_findings_summary(findings),
     )
-    client = anthropic.Anthropic()
+    client = anthropic.Anthropic(api_key=require_anthropic_api_key())
     message = client.messages.create(
         model=MODEL,
         max_tokens=2048,
         messages=[{"role": "user", "content": prompt}],
     )
     return message.content[0].text
+
+
+def _fallback_memo_text(
+    profile: VendorProfile,
+    findings: list[Finding],
+    scorecard: dict,
+) -> str:
+    red_frameworks = [fw for fw, data in scorecard.items() if data.get("rag") == "Red"]
+    amber_frameworks = [fw for fw, data in scorecard.items() if data.get("rag") == "Amber"]
+    top_findings = findings[:5]
+
+    lines = [
+        "Executive Summary",
+        f"Vendor {profile.name} was assessed across {len(scorecard)} framework(s).",
+        f"Overall high-risk frameworks: {', '.join(red_frameworks) if red_frameworks else 'None'}.",
+        f"Frameworks requiring follow-up: {', '.join(amber_frameworks) if amber_frameworks else 'None'}.",
+        "",
+        "Assessment Scope",
+        f"Sector: {profile.sector}.",
+        f"Services: {', '.join(profile.services)}.",
+        "",
+        "Key Findings",
+    ]
+
+    if top_findings:
+        for finding in top_findings:
+            lines.append(
+                f"- [{finding.framework}] {finding.control_id}: {finding.status} ({finding.severity}). {finding.evidence}"
+            )
+    else:
+        lines.append("- No findings were produced.")
+
+    lines.extend([
+        "",
+        "Recommendations",
+        "1. Review the highlighted gaps and partial controls.",
+        "2. Validate the underlying evidence with the vendor.",
+        "3. Track remediation actions for all high-risk findings.",
+        "",
+        "Conclusion",
+        "This memo was generated using the built-in fallback summary because AI narrative drafting was unavailable during this run.",
+    ])
+    return "\n".join(lines)
 
 
 def write_audit_memo(
@@ -72,7 +116,10 @@ def write_audit_memo(
 ) -> str:
     """Write audit memo as DOCX. Returns the memo text for reuse."""
     if memo_text is None:
-        memo_text = draft_memo_text(profile, findings, scorecard)
+        try:
+            memo_text = draft_memo_text(profile, findings, scorecard)
+        except Exception:
+            memo_text = _fallback_memo_text(profile, findings, scorecard)
 
     doc = Document()
     doc.add_heading(f"Vendor Risk Assessment: {profile.name}", 0)

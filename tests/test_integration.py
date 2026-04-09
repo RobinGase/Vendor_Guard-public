@@ -81,3 +81,36 @@ def test_full_pipeline(tmp_path, mocker):
     assert (tmp_path / "scorecard.xlsx").exists()
     assert (tmp_path / "gap_register.xlsx").exists()
     assert (tmp_path / "audit_memo.docx").exists()
+
+
+def test_full_pipeline_continues_when_one_agent_fails(tmp_path, mocker):
+    questionnaire = tmp_path / "vendor_q.txt"
+    questionnaire.write_text("Vendor: TestVendor B.V.\nISO 27001: Certified\nMFA: Yes")
+
+    def mock_create(**kwargs):
+        system = kwargs.get("system", "")
+        if not system:
+            return make_mock_response("Audit memo content.")
+        if "orchestrator" in system.lower() or "vendor profile" in system.lower() or "applicable_frameworks" in system:
+            return make_mock_response(PROFILE_RESPONSE)
+        if "DORA" in system or "resilience" in system.lower() or "digital operational resilience" in system.lower():
+            raise RuntimeError("simulated agent failure")
+        return make_mock_response(SECURITY_FINDINGS)
+
+    mock_client = MagicMock()
+    mock_client.messages.create.side_effect = mock_create
+    mocker.patch("agents.orchestrator.anthropic.Anthropic", return_value=mock_client)
+    mocker.patch("agents.security_agent.anthropic.Anthropic", return_value=mock_client)
+    mocker.patch("agents.resilience_agent.anthropic.Anthropic", return_value=mock_client)
+    mocker.patch("synthesizer.memo.anthropic.Anthropic", return_value=mock_client)
+
+    from main import run_pipeline
+    outputs = run_pipeline(
+        questionnaire_path=questionnaire,
+        doc_paths=[],
+        output_dir=tmp_path,
+    )
+
+    assert outputs["scorecard_xlsx"].exists()
+    assert outputs["gap_register_xlsx"].exists()
+    assert outputs["memo_docx"].exists()

@@ -1,5 +1,5 @@
 import anthropic
-from agents.base import load_prompt, extract_json
+from agents.base import load_prompt, extract_json, require_anthropic_api_key
 from models.finding import Finding
 
 MODEL = "claude-sonnet-4-6"
@@ -49,7 +49,7 @@ def run_ai_trust_agent(vendor_docs: str) -> list[Finding]:
 
     system = SYSTEM_PROMPT.format(ai_act=ai_act, altai=altai, ec_ethics=ec_ethics)
 
-    client = anthropic.Anthropic()
+    client = anthropic.Anthropic(api_key=require_anthropic_api_key())
     message = client.messages.create(
         model=MODEL,
         max_tokens=8192,
