@@ -132,3 +132,17 @@ def _salvage_truncated_array(raw: str) -> list:
     if not results:
         raise json.JSONDecodeError("No complete JSON objects found", raw, 0)
     return results
+
+
+def fallback_finding_from_prose(*, framework: str, control_id: str, control_name: str, raw: str) -> list[dict]:
+    return [
+        {
+            "framework": framework,
+            "control_id": control_id,
+            "control_name": control_name,
+            "status": "Partial",
+            "severity": "Medium",
+            "evidence": raw.strip(),
+            "recommendation": "Review the returned narrative response and convert it into structured audit findings.",
+        }
+    ]

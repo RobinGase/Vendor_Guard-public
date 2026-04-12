@@ -1,4 +1,4 @@
-from agents.base import load_prompt, extract_json, invoke_chat_model
+from agents.base import fallback_finding_from_prose, load_prompt, extract_json, invoke_chat_model
 from models.finding import Finding
 
 MODEL = "claude-sonnet-4-6"
@@ -54,5 +54,13 @@ def run_ai_trust_agent(vendor_docs: str) -> list[Finding]:
         system=system,
         user_prompt=f"Please assess the following AI vendor documents:\n\n{vendor_docs}",
     )
-    findings_data = extract_json(raw)
+    try:
+        findings_data = extract_json(raw)
+    except Exception:
+        findings_data = fallback_finding_from_prose(
+            framework="EU AI Act",
+            control_id="AI-PROSE-01",
+            control_name="Narrative AI trust assessment",
+            raw=raw,
+        )
     return [Finding(**f) for f in findings_data]

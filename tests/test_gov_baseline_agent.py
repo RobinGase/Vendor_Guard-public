@@ -38,3 +38,13 @@ def test_gov_baseline_agent_returns_findings(mocker):
     assert len(findings) == 1
     assert isinstance(findings[0], Finding)
     assert findings[0].framework == "BIO2"
+
+
+def test_gov_baseline_agent_falls_back_to_single_finding_for_prose_response(mocker):
+    prose = "The vendor uses strong cryptography, but the BIO2 specific evidence is incomplete."
+    mocker.patch("agents.gov_baseline_agent.invoke_chat_model", return_value=prose)
+
+    findings = run_gov_baseline_agent(SAMPLE_DOCS)
+
+    assert len(findings) == 1
+    assert findings[0].framework == "BIO2"

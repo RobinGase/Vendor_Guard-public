@@ -1,4 +1,4 @@
-from agents.base import load_prompt, extract_json, invoke_chat_model
+from agents.base import fallback_finding_from_prose, load_prompt, extract_json, invoke_chat_model
 from models.finding import Finding
 
 MODEL = "claude-sonnet-4-6"
@@ -39,5 +39,13 @@ def run_gov_baseline_agent(vendor_docs: str) -> list[Finding]:
         system=system,
         user_prompt=f"Please assess the following vendor documents:\n\n{vendor_docs}",
     )
-    findings_data = extract_json(raw)
+    try:
+        findings_data = extract_json(raw)
+    except Exception:
+        findings_data = fallback_finding_from_prose(
+            framework="BIO2",
+            control_id="BIO2-PROSE-01",
+            control_name="Narrative BIO2 assessment",
+            raw=raw,
+        )
     return [Finding(**f) for f in findings_data]

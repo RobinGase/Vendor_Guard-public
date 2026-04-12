@@ -41,3 +41,13 @@ def test_ai_trust_agent_returns_findings(mocker):
     assert len(findings) == 1
     assert isinstance(findings[0], Finding)
     assert findings[0].framework == "EU AI Act"
+
+
+def test_ai_trust_agent_falls_back_to_single_finding_for_prose_response(mocker):
+    prose = "The vendor appears to have limited AI governance evidence and no full risk classification details."
+    mocker.patch("agents.ai_trust_agent.invoke_chat_model", return_value=prose)
+
+    findings = run_ai_trust_agent(SAMPLE_DOCS)
+
+    assert len(findings) == 1
+    assert findings[0].framework == "EU AI Act"

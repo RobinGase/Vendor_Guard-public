@@ -110,8 +110,10 @@ Current integration status:
 
 - the workload can start inside the shell
 - the guest wrapper and entrypoint run
-- profile extraction is the first live workload stage reached inside the shell
+- vendor profile extraction now runs inside the shell and returns a parsed profile
+- guest side logs are visible through AgentFS (`saaf_wrapper.log`, `saaf_entrypoint.stdout`, `saaf_entrypoint.stderr`)
 - the remaining blockers are workload level, not shell bring up
+- current open issue: specialist agent and final output generation need additional hardening before full in-shell production use
 
 In other words, the shell path is real, but Vendor_Guard still needs further hardening around model response handling and output generation before the full product flow is complete inside the VM.
 

@@ -171,6 +171,50 @@ def test_pipeline_uses_questionnaire_only_for_vendor_profile(tmp_path, mocker):
     assert "FULL_DOC" not in captured["vendor_docs"]
 
 
+def test_pipeline_truncates_agent_document_bundle(tmp_path, mocker):
+    questionnaire = tmp_path / "vendor_q.txt"
+    questionnaire.write_text("QUESTIONNAIRE")
+    doc = tmp_path / "doc.txt"
+    doc.write_text("FULL_DOC" * 5000)
+
+    from models.finding import VendorProfile
+
+    mocker.patch(
+        "main.build_vendor_profile",
+        return_value=VendorProfile(
+            name="X",
+            sector="Finance",
+            services=["Backup"],
+            processes_personal_data=True,
+            is_ai_system=False,
+            is_dutch_government_vendor=False,
+            applicable_frameworks=["ISO 27001"],
+        ),
+    )
+    mocker.patch("main.determine_frameworks", return_value=["security"])
+    captured = {}
+
+    def fake_security_agent(vendor_docs):
+        captured["vendor_docs"] = vendor_docs
+        return []
+
+    mocker.patch.dict("main.AGENT_MAP", {"security": fake_security_agent})
+    mocker.patch("main.aggregate_findings", return_value=[])
+    mocker.patch("main.compute_rag_scorecard", return_value={})
+    mocker.patch("synthesizer.scorecard.write_scorecard")
+    mocker.patch("synthesizer.scorecard.write_gap_register")
+    mocker.patch("synthesizer.memo.write_audit_memo", return_value="memo")
+    mocker.patch("synthesizer.google_output.write_scorecard_csv")
+    mocker.patch("synthesizer.google_output.write_gap_register_csv")
+    mocker.patch("synthesizer.google_output.write_audit_memo_html")
+
+    from main import run_pipeline
+
+    run_pipeline(questionnaire_path=questionnaire, doc_paths=[doc], output_dir=tmp_path)
+
+    assert len(captured["vendor_docs"]) < 10000
+
+
 def test_main_module_does_not_import_output_writers_at_import_time(monkeypatch):
     import builtins
     import importlib

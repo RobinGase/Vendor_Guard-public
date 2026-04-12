@@ -59,3 +59,16 @@ def test_security_agent_requires_api_key(monkeypatch, mocker):
 
     with pytest.raises(RuntimeError, match="ANTHROPIC_API_KEY"):
         run_security_agent(SAMPLE_VENDOR_DOCS)
+
+
+def test_security_agent_falls_back_to_single_finding_for_prose_response(mocker):
+    prose = "Vendor has documented MFA and quarterly access reviews, but no formal access control policy was provided."
+    mocker.patch("agents.security_agent.invoke_chat_model", return_value=prose)
+
+    findings = run_security_agent(SAMPLE_VENDOR_DOCS)
+
+    assert len(findings) == 1
+    assert findings[0].framework == "ISO 27001"
+    assert findings[0].status == "Partial"
+    assert findings[0].severity == "Medium"
+    assert "access control policy" in findings[0].evidence.lower()

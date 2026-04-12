@@ -18,6 +18,8 @@ AGENT_MAP = {
     "ai_trust": run_ai_trust_agent,
 }
 
+MAX_AGENT_DOC_CHARS = 8000
+
 
 def run_pipeline(
     questionnaire_path: Path,
@@ -29,6 +31,7 @@ def run_pipeline(
     questionnaire_text = parse_documents([questionnaire_path])
     all_paths = [questionnaire_path] + list(doc_paths)
     vendor_docs = parse_documents(all_paths)
+    agent_docs = vendor_docs[:MAX_AGENT_DOC_CHARS]
 
     print("Extracting vendor profile...")
     profile = build_vendor_profile(questionnaire_text)
@@ -41,7 +44,7 @@ def run_pipeline(
     failed_agents: list[tuple[str, Exception]] = []
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = {
-            executor.submit(AGENT_MAP[name], vendor_docs): name
+            executor.submit(AGENT_MAP[name], agent_docs): name
             for name in agents_to_run
         }
         for future in concurrent.futures.as_completed(futures):
