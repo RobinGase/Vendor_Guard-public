@@ -1,0 +1,36 @@
+version: 1
+name: vendor-guard
+description: Vendor_Guard workload manifest for saaf-compliance-shell
+
+agent:
+  entrypoint: /audit_workspace/vendor_guard/saaf_run.sh
+  working_directory: /audit_workspace/vendor_guard
+  env:
+    INFERENCE_URL: http://172.16.0.1:8088/v1/chat/completions
+    VENDOR_OUTPUT_DIR: /audit_workspace
+
+data_classification:
+  default: sensitive
+
+filesystem:
+  read_write:
+    - /audit_workspace
+
+network:
+  allow:
+    - host: gateway
+      port: 8088
+      purpose: nemo_guardrails
+
+resources:
+  vcpu_count: 2
+  mem_size_mib: 2048
+
+pii:
+  entities:
+    - PERSON
+    - EMAIL_ADDRESS
+    - BSN_NL
+
+audit:
+  retention_days: 2555

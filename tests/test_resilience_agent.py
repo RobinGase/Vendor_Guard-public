@@ -33,9 +33,7 @@ def test_resilience_agent_returns_findings(mocker):
             "recommendation": "Continue annual testing; consider TLPT as entity grows.",
         }
     ]
-    mock_client = MagicMock()
-    mock_client.messages.create.return_value = make_mock_response(mock_findings)
-    mocker.patch("agents.resilience_agent.anthropic.Anthropic", return_value=mock_client)
+    mocker.patch("agents.resilience_agent.invoke_chat_model", return_value=json.dumps(mock_findings))
 
     findings = run_resilience_agent(SAMPLE_DOCS)
     assert len(findings) == 1
@@ -44,9 +42,7 @@ def test_resilience_agent_returns_findings(mocker):
 
 
 def test_resilience_agent_returns_list(mocker):
-    mock_client = MagicMock()
-    mock_client.messages.create.return_value = make_mock_response([])
-    mocker.patch("agents.resilience_agent.anthropic.Anthropic", return_value=mock_client)
+    mocker.patch("agents.resilience_agent.invoke_chat_model", return_value=json.dumps([]))
 
     findings = run_resilience_agent(SAMPLE_DOCS)
     assert isinstance(findings, list)

@@ -8,9 +8,6 @@ from agents.resilience_agent import run_resilience_agent
 from agents.gov_baseline_agent import run_gov_baseline_agent
 from agents.ai_trust_agent import run_ai_trust_agent
 from synthesizer.synthesizer import aggregate_findings, compute_rag_scorecard
-from synthesizer.scorecard import write_scorecard, write_gap_register
-from synthesizer.memo import write_audit_memo
-from synthesizer.google_output import write_scorecard_csv, write_gap_register_csv, write_audit_memo_html
 from utils.document_parser import parse_documents
 from models.finding import Finding
 
@@ -29,11 +26,12 @@ def run_pipeline(
 ) -> dict:
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    questionnaire_text = parse_documents([questionnaire_path])
     all_paths = [questionnaire_path] + list(doc_paths)
     vendor_docs = parse_documents(all_paths)
 
     print("Extracting vendor profile...")
-    profile = build_vendor_profile(vendor_docs)
+    profile = build_vendor_profile(questionnaire_text)
     print(f"Vendor: {profile.name} | Sector: {profile.sector} | AI system: {profile.is_ai_system}")
 
     agents_to_run = determine_frameworks(profile)
@@ -61,6 +59,10 @@ def run_pipeline(
     scorecard = compute_rag_scorecard(all_findings)
 
     print("Writing outputs...")
+
+    from synthesizer.scorecard import write_scorecard, write_gap_register
+    from synthesizer.memo import write_audit_memo
+    from synthesizer.google_output import write_scorecard_csv, write_gap_register_csv, write_audit_memo_html
 
     # Draft memo text once, reuse for both DOCX and HTML
     memo_text = write_audit_memo(profile, all_findings, scorecard, output_dir / "audit_memo.docx")

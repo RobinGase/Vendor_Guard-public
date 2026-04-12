@@ -64,12 +64,19 @@ def test_full_pipeline(tmp_path, mocker):
         # default: security agent
         return make_mock_response(SECURITY_FINDINGS)
 
-    mock_client = MagicMock()
-    mock_client.messages.create.side_effect = mock_create
-    mocker.patch("agents.orchestrator.anthropic.Anthropic", return_value=mock_client)
-    mocker.patch("agents.security_agent.anthropic.Anthropic", return_value=mock_client)
-    mocker.patch("agents.resilience_agent.anthropic.Anthropic", return_value=mock_client)
-    mocker.patch("synthesizer.memo.anthropic.Anthropic", return_value=mock_client)
+    def route_call(*, system=None, user_prompt=None, model=None, max_tokens=None):
+        if not system:
+            return "Audit memo content."
+        if "orchestrator" in system.lower() or "vendor profile" in system.lower() or "applicable_frameworks" in system:
+            return json.dumps(PROFILE_RESPONSE)
+        if "DORA" in system or "resilience" in system.lower() or "digital operational resilience" in system.lower():
+            return json.dumps(RESILIENCE_FINDINGS)
+        return json.dumps(SECURITY_FINDINGS)
+
+    mocker.patch("agents.orchestrator.invoke_chat_model", side_effect=route_call)
+    mocker.patch("agents.security_agent.invoke_chat_model", side_effect=route_call)
+    mocker.patch("agents.resilience_agent.invoke_chat_model", side_effect=route_call)
+    mocker.patch("synthesizer.memo.invoke_chat_model", side_effect=route_call)
 
     from main import run_pipeline
     outputs = run_pipeline(
@@ -97,12 +104,19 @@ def test_full_pipeline_continues_when_one_agent_fails(tmp_path, mocker):
             raise RuntimeError("simulated agent failure")
         return make_mock_response(SECURITY_FINDINGS)
 
-    mock_client = MagicMock()
-    mock_client.messages.create.side_effect = mock_create
-    mocker.patch("agents.orchestrator.anthropic.Anthropic", return_value=mock_client)
-    mocker.patch("agents.security_agent.anthropic.Anthropic", return_value=mock_client)
-    mocker.patch("agents.resilience_agent.anthropic.Anthropic", return_value=mock_client)
-    mocker.patch("synthesizer.memo.anthropic.Anthropic", return_value=mock_client)
+    def route_call(*, system=None, user_prompt=None, model=None, max_tokens=None):
+        if not system:
+            return "Audit memo content."
+        if "orchestrator" in system.lower() or "vendor profile" in system.lower() or "applicable_frameworks" in system:
+            return json.dumps(PROFILE_RESPONSE)
+        if "DORA" in system or "resilience" in system.lower() or "digital operational resilience" in system.lower():
+            raise RuntimeError("simulated agent failure")
+        return json.dumps(SECURITY_FINDINGS)
+
+    mocker.patch("agents.orchestrator.invoke_chat_model", side_effect=route_call)
+    mocker.patch("agents.security_agent.invoke_chat_model", side_effect=route_call)
+    mocker.patch("agents.resilience_agent.invoke_chat_model", side_effect=route_call)
+    mocker.patch("synthesizer.memo.invoke_chat_model", side_effect=route_call)
 
     from main import run_pipeline
     outputs = run_pipeline(
@@ -114,3 +128,61 @@ def test_full_pipeline_continues_when_one_agent_fails(tmp_path, mocker):
     assert outputs["scorecard_xlsx"].exists()
     assert outputs["gap_register_xlsx"].exists()
     assert outputs["memo_docx"].exists()
+
+
+def test_pipeline_uses_questionnaire_only_for_vendor_profile(tmp_path, mocker):
+    questionnaire = tmp_path / "vendor_q.txt"
+    questionnaire.write_text("QUESTIONNAIRE")
+    doc = tmp_path / "doc.txt"
+    doc.write_text("FULL_DOC")
+
+    captured = {}
+
+    def fake_build_vendor_profile(vendor_docs):
+        captured["vendor_docs"] = vendor_docs
+        from models.finding import VendorProfile
+
+        return VendorProfile(
+            name="X",
+            sector="Finance",
+            services=["Backup"],
+            processes_personal_data=True,
+            is_ai_system=False,
+            is_dutch_government_vendor=False,
+            applicable_frameworks=["ISO 27001"],
+        )
+
+    mocker.patch("main.build_vendor_profile", side_effect=fake_build_vendor_profile)
+    mocker.patch("main.determine_frameworks", return_value=[])
+    mocker.patch("main.aggregate_findings", return_value=[])
+    mocker.patch("main.compute_rag_scorecard", return_value={})
+    mocker.patch("synthesizer.scorecard.write_scorecard")
+    mocker.patch("synthesizer.scorecard.write_gap_register")
+    mocker.patch("synthesizer.memo.write_audit_memo", return_value="memo")
+    mocker.patch("synthesizer.google_output.write_scorecard_csv")
+    mocker.patch("synthesizer.google_output.write_gap_register_csv")
+    mocker.patch("synthesizer.google_output.write_audit_memo_html")
+
+    from main import run_pipeline
+
+    run_pipeline(questionnaire_path=questionnaire, doc_paths=[doc], output_dir=tmp_path)
+
+    assert "QUESTIONNAIRE" in captured["vendor_docs"]
+    assert "FULL_DOC" not in captured["vendor_docs"]
+
+
+def test_main_module_does_not_import_output_writers_at_import_time(monkeypatch):
+    import builtins
+    import importlib
+
+    real_import = builtins.__import__
+
+    def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if name.startswith("synthesizer.scorecard") or name.startswith("synthesizer.memo") or name.startswith("synthesizer.google_output"):
+            raise AssertionError(f"unexpected eager import: {name}")
+        return real_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", guarded_import)
+
+    import main
+    importlib.reload(main)

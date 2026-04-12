@@ -1,8 +1,12 @@
-import anthropic
-from agents.base import extract_json, require_anthropic_api_key
+import os
+import re
+from pathlib import Path
+
+from agents.base import extract_json, invoke_chat_model
 from models.finding import VendorProfile
 
 MODEL = "claude-opus-4-6"
+MAX_VENDOR_DOC_CHARS = 1200
 
 SYSTEM_PROMPT = """You are a vendor risk assessment orchestrator. Extract a structured vendor profile from the provided documents.
 
@@ -23,20 +27,20 @@ Return ONLY the JSON object. No preamble or markdown fences.
 
 
 def build_vendor_profile(vendor_docs: str) -> VendorProfile:
-    client = anthropic.Anthropic(api_key=require_anthropic_api_key())
-    message = client.messages.create(
+    vendor_docs = vendor_docs[:MAX_VENDOR_DOC_CHARS]
+    raw = invoke_chat_model(
         model=MODEL,
         max_tokens=1024,
         system=SYSTEM_PROMPT,
-        messages=[
-            {
-                "role": "user",
-                "content": f"Extract the vendor profile from these documents:\n\n{vendor_docs}",
-            }
-        ],
+        user_prompt=f"Extract the vendor profile from these documents:\n\n{vendor_docs}",
     )
-    raw = message.content[0].text.strip()
-    data = extract_json(raw)
+    debug_path = os.getenv("VENDOR_PROFILE_DEBUG_PATH")
+    if debug_path:
+        Path(debug_path).write_text(raw, encoding="utf-8")
+    try:
+        data = extract_json(raw)
+    except Exception:
+        data = _parse_profile_from_prose(raw)
     return VendorProfile(**data)
 
 
@@ -47,3 +51,23 @@ def determine_frameworks(profile: VendorProfile) -> list[str]:
     if profile.is_ai_system:
         agents.append("ai_trust")
     return agents
+
+
+def _parse_profile_from_prose(raw: str) -> dict:
+    def extract(pattern: str, default: str = "") -> str:
+        match = re.search(pattern, raw, flags=re.IGNORECASE | re.MULTILINE)
+        return match.group(1).strip() if match else default
+
+    services = re.findall(r"^-\s+(.+)$", raw, flags=re.MULTILINE)
+    frameworks_text = extract(r"Applicable Frameworks:\s*(.+)$")
+    frameworks = [item.strip() for item in frameworks_text.split(",") if item.strip()]
+
+    return {
+        "name": extract(r"Vendor Profile:\s*(.+)$") or extract(r"Name:\s*(.+)$"),
+        "sector": extract(r"Sector:\s*(.+)$"),
+        "services": services,
+        "processes_personal_data": extract(r"Personal Data Processing:\s*(.+)$").lower().startswith("y"),
+        "is_ai_system": extract(r"AI System:\s*(.+)$").lower().startswith("y"),
+        "is_dutch_government_vendor": extract(r"Dutch Government Client:\s*(.+)$").lower().startswith("y"),
+        "applicable_frameworks": frameworks,
+    }

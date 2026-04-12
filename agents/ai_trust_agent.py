@@ -1,5 +1,4 @@
-import anthropic
-from agents.base import load_prompt, extract_json, require_anthropic_api_key
+from agents.base import load_prompt, extract_json, invoke_chat_model
 from models.finding import Finding
 
 MODEL = "claude-sonnet-4-6"
@@ -49,19 +48,11 @@ def run_ai_trust_agent(vendor_docs: str) -> list[Finding]:
 
     system = SYSTEM_PROMPT.format(ai_act=ai_act, altai=altai, ec_ethics=ec_ethics)
 
-    client = anthropic.Anthropic(api_key=require_anthropic_api_key())
-    message = client.messages.create(
+    raw = invoke_chat_model(
         model=MODEL,
         max_tokens=8192,
         system=system,
-        messages=[
-            {
-                "role": "user",
-                "content": f"Please assess the following AI vendor documents:\n\n{vendor_docs}",
-            }
-        ],
+        user_prompt=f"Please assess the following AI vendor documents:\n\n{vendor_docs}",
     )
-
-    raw = message.content[0].text.strip()
     findings_data = extract_json(raw)
     return [Finding(**f) for f in findings_data]

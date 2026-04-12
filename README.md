@@ -98,6 +98,23 @@ All outputs are generated in both Microsoft Office (xlsx, docx) and Google Works
 - Python 3.11+
 - An Anthropic API key with access to Claude Sonnet and Claude Opus
 
+## Shell Integration Status
+
+Vendor_Guard now includes a first SAAF shell integration path:
+
+- `saaf-manifest.yaml`
+- `saaf_entrypoint.py`
+- `saaf_run.sh`
+
+Current integration status:
+
+- the workload can start inside the shell
+- the guest wrapper and entrypoint run
+- profile extraction is the first live workload stage reached inside the shell
+- the remaining blockers are workload level, not shell bring up
+
+In other words, the shell path is real, but Vendor_Guard still needs further hardening around model response handling and output generation before the full product flow is complete inside the VM.
+
 ## Setup
 
 ```bash
