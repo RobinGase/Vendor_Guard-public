@@ -6,10 +6,9 @@ def test_saaf_run_script_uses_guest_venv_and_entrypoint() -> None:
 
     assert "/opt/vendor-guard-venv/bin/python" in content
     assert "saaf_entrypoint.py" in content
-    assert "cd /audit_workspace/vendor_guard" in content
+    assert "/tmp/vendor_guard_runtime" in content
+    assert "cp -a /audit_workspace/vendor_guard /tmp/vendor_guard_runtime" in content
     assert "saaf_wrapper.log" in content
     assert "saaf_entrypoint.stdout" in content
     assert "saaf_entrypoint.stderr" in content
     assert "wrapper_exec" in content
-    assert "saaf_entrypoint.stdout" in content
-    assert "saaf_entrypoint.stderr" in content

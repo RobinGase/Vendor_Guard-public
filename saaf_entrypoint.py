@@ -36,19 +36,18 @@ def write_status(log_path: Path, message: str) -> None:
         handle.write(message + "\n")
 
 
-def wait_for_inference_ready(inference_url: str, attempts: int = 20, delay_seconds: int = 1) -> None:
+def wait_for_inference_ready(inference_url: str, attempts: int = 20, delay_seconds: int = 1) -> bool:
     health_url = inference_url.split("/v1/", 1)[0] + "/health"
     last_error = None
     for _ in range(attempts):
         try:
             response = urllib.request.urlopen(health_url, timeout=5)
             response.read()
-            return
+            return True
         except Exception as exc:
             last_error = exc
             time.sleep(delay_seconds)
-    if last_error is not None:
-        raise last_error
+    return False
 
 
 def main() -> None:
@@ -61,8 +60,10 @@ def main() -> None:
     write_status(log_path, f"output_dir={output_path}")
     if inference_url:
         write_status(log_path, f"inference_url={inference_url}")
-        wait_for_inference_ready(inference_url)
-        write_status(log_path, "inference_ready=ok")
+        if wait_for_inference_ready(inference_url):
+            write_status(log_path, "inference_ready=ok")
+        else:
+            write_status(log_path, "inference_ready=timeout")
     try:
         run_pipeline(questionnaire_path=questionnaire_path, doc_paths=doc_paths, output_dir=output_path)
         write_status(log_path, "pipeline=ok")
