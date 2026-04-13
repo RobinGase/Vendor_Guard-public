@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from saaf_entrypoint import resolve_inputs, wait_for_inference_ready, write_status
+from saaf_entrypoint import disable_pydantic_plugin_discovery, resolve_inputs, wait_for_inference_ready, write_status
 
 
 def test_resolve_inputs_uses_env_overrides(monkeypatch, tmp_path: Path) -> None:
@@ -83,3 +83,11 @@ def test_wait_for_inference_ready_can_return_false_after_retries(monkeypatch):
     ready = wait_for_inference_ready("http://172.16.0.1:8088/v1/chat/completions", attempts=2, delay_seconds=0)
 
     assert ready is False
+
+
+def test_disable_pydantic_plugin_discovery_overrides_distributions(monkeypatch):
+    import importlib.metadata as importlib_metadata
+
+    disable_pydantic_plugin_discovery()
+
+    assert list(importlib_metadata.distributions()) == []

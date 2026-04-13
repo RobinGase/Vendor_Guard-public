@@ -1,10 +1,9 @@
 import os
 import traceback
+import importlib.metadata as importlib_metadata
 import urllib.request
 import time
 from pathlib import Path
-
-from main import run_pipeline
 
 
 def resolve_inputs(repo_root: Path) -> tuple[Path, list[Path], Path]:
@@ -36,6 +35,10 @@ def write_status(log_path: Path, message: str) -> None:
         handle.write(message + "\n")
 
 
+def disable_pydantic_plugin_discovery() -> None:
+    importlib_metadata.distributions = lambda: []
+
+
 def wait_for_inference_ready(inference_url: str, attempts: int = 20, delay_seconds: int = 1) -> bool:
     health_url = inference_url.split("/v1/", 1)[0] + "/health"
     last_error = None
@@ -51,6 +54,9 @@ def wait_for_inference_ready(inference_url: str, attempts: int = 20, delay_secon
 
 
 def main() -> None:
+    disable_pydantic_plugin_discovery()
+    from main import run_pipeline
+
     repo_root = Path(__file__).resolve().parent
     questionnaire_path, doc_paths, output_path = resolve_inputs(repo_root)
     log_path = output_path / "saaf_entrypoint.log"
