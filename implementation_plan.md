@@ -22,7 +22,7 @@ Build a reusable compliance wrapper that reads a target repo manifest, generates
 
 ## Critical Constraints
 - `Landlock` is Linux-only. Actual sandbox enforcement and verification must run in Linux, WSL2, or a Linux server.
-- Use `RobinGase/Vendor_Guard` private fork as the first target.
+- Use a private fork of `Vendor_Guard` as the first target.
 - Prefer `target path` over submodule for v1.
 - Start with deterministic regex for email and IBAN masking.
 - Do not block v1 on perfect name detection.
@@ -78,7 +78,7 @@ saaf-compliance-shell/
 ```
 
 ## Phase 0: Platform and Integration Decisions
-- Use `RobinGase/Vendor_Guard` private fork as first target
+- Use a private fork of `Vendor_Guard` as first target
 - Treat target as an external process with a manifest contract
 - Prefer `target path` over submodule for v1
 - Use local model endpoint env vars for Ollama/NIM
