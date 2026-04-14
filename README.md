@@ -106,7 +106,7 @@ Vendor_Guard now includes a first SAAF shell integration path:
 - `saaf_entrypoint.py`
 - `saaf_run.sh`
 
-Current integration status (2026-04-13):
+Current integration status (2026-04-14, repeatable — sessions `vendor-guard-a646e7cf` and `vendor-guard-5e3aae84`):
 
 - end-to-end Vendor_Guard runs complete inside the saaf-compliance-shell Firecracker VM
 - guest wrapper, entrypoint, profile extraction, specialist agents, and synthesizers all run inside the VM
