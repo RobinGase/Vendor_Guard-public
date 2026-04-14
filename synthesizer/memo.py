@@ -1,8 +1,7 @@
 import json
-import anthropic
 from pathlib import Path
 from docx import Document
-from agents.base import require_anthropic_api_key
+from agents.base import invoke_chat_model
 from models.finding import Finding, VendorProfile
 
 MODEL = "claude-opus-4-6"
@@ -55,13 +54,11 @@ def draft_memo_text(
         scorecard=_scorecard_summary(scorecard),
         findings_summary=_findings_summary(findings),
     )
-    client = anthropic.Anthropic(api_key=require_anthropic_api_key())
-    message = client.messages.create(
+    return invoke_chat_model(
         model=MODEL,
         max_tokens=2048,
-        messages=[{"role": "user", "content": prompt}],
+        user_prompt=prompt,
     )
-    return message.content[0].text
 
 
 def _fallback_memo_text(

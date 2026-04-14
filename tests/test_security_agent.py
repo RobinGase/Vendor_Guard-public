@@ -36,9 +36,7 @@ def test_security_agent_returns_findings(mocker):
             "recommendation": "Define a critical patch SLA of 72 hours.",
         }
     ]
-    mock_client = MagicMock()
-    mock_client.messages.create.return_value = make_mock_response(mock_findings)
-    mocker.patch("agents.security_agent.anthropic.Anthropic", return_value=mock_client)
+    mocker.patch("agents.security_agent.invoke_chat_model", return_value=json.dumps(mock_findings))
 
     findings = run_security_agent(SAMPLE_VENDOR_DOCS)
 
@@ -49,9 +47,7 @@ def test_security_agent_returns_findings(mocker):
 
 
 def test_security_agent_returns_list(mocker):
-    mock_client = MagicMock()
-    mock_client.messages.create.return_value = make_mock_response([])
-    mocker.patch("agents.security_agent.anthropic.Anthropic", return_value=mock_client)
+    mocker.patch("agents.security_agent.invoke_chat_model", return_value=json.dumps([]))
 
     findings = run_security_agent(SAMPLE_VENDOR_DOCS)
     assert isinstance(findings, list)
@@ -59,10 +55,20 @@ def test_security_agent_returns_list(mocker):
 
 def test_security_agent_requires_api_key(monkeypatch, mocker):
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-    mocker.patch(
-        "agents.security_agent.anthropic.Anthropic",
-        side_effect=AssertionError("client should not be created without API key"),
-    )
+    monkeypatch.delenv("INFERENCE_URL", raising=False)
 
     with pytest.raises(RuntimeError, match="ANTHROPIC_API_KEY"):
         run_security_agent(SAMPLE_VENDOR_DOCS)
+
+
+def test_security_agent_falls_back_to_single_finding_for_prose_response(mocker):
+    prose = "Vendor has documented MFA and quarterly access reviews, but no formal access control policy was provided."
+    mocker.patch("agents.security_agent.invoke_chat_model", return_value=prose)
+
+    findings = run_security_agent(SAMPLE_VENDOR_DOCS)
+
+    assert len(findings) == 1
+    assert findings[0].framework == "ISO 27001"
+    assert findings[0].status == "Partial"
+    assert findings[0].severity == "Medium"
+    assert "access control policy" in findings[0].evidence.lower()

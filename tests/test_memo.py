@@ -35,11 +35,10 @@ def make_mock_response(text: str):
 
 
 def test_write_audit_memo_creates_file(tmp_path, mocker):
-    mock_client = MagicMock()
-    mock_client.messages.create.return_value = make_mock_response(
-        "Executive Summary\n\nOverall risk: Amber.\n\nKey findings: Patch management gap in ISO 27001."
+    mocker.patch(
+        "synthesizer.memo.invoke_chat_model",
+        return_value="Executive Summary\n\nOverall risk: Amber.\n\nKey findings: Patch management gap in ISO 27001.",
     )
-    mocker.patch("synthesizer.memo.anthropic.Anthropic", return_value=mock_client)
 
     out = tmp_path / "memo.docx"
     write_audit_memo(PROFILE, FINDINGS, SCORECARD, out)
@@ -47,19 +46,15 @@ def test_write_audit_memo_creates_file(tmp_path, mocker):
 
 
 def test_write_audit_memo_calls_claude(tmp_path, mocker):
-    mock_client = MagicMock()
-    mock_client.messages.create.return_value = make_mock_response("Audit memo content here.")
-    mocker.patch("synthesizer.memo.anthropic.Anthropic", return_value=mock_client)
+    mocked = mocker.patch("synthesizer.memo.invoke_chat_model", return_value="Audit memo content here.")
 
     out = tmp_path / "memo.docx"
     write_audit_memo(PROFILE, FINDINGS, SCORECARD, out)
-    assert mock_client.messages.create.called
+    assert mocked.called
 
 
 def test_write_audit_memo_falls_back_when_claude_fails(tmp_path, mocker):
-    mock_client = MagicMock()
-    mock_client.messages.create.side_effect = RuntimeError("anthropic unavailable")
-    mocker.patch("synthesizer.memo.anthropic.Anthropic", return_value=mock_client)
+    mocker.patch("synthesizer.memo.invoke_chat_model", side_effect=RuntimeError("anthropic unavailable"))
 
     out = tmp_path / "memo.docx"
     memo_text = write_audit_memo(PROFILE, FINDINGS, SCORECARD, out)

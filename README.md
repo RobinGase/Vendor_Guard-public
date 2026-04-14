@@ -98,6 +98,29 @@ All outputs are generated in both Microsoft Office (xlsx, docx) and Google Works
 - Python 3.11+
 - An Anthropic API key with access to Claude Sonnet and Claude Opus
 
+## Shell Integration Status
+
+Vendor_Guard now includes a first SAAF shell integration path:
+
+- `saaf-manifest.yaml`
+- `saaf_entrypoint.py`
+- `saaf_run.sh`
+
+Current integration status (2026-04-14, repeatable — sessions `vendor-guard-a646e7cf` and `vendor-guard-5e3aae84`):
+
+- end-to-end Vendor_Guard runs complete inside the saaf-compliance-shell Firecracker VM
+- guest wrapper, entrypoint, profile extraction, specialist agents, and synthesizers all run inside the VM
+- guest-side logs are visible through AgentFS (`saaf_wrapper.log`, `saaf_entrypoint.log`, `saaf_entrypoint.stdout`, `saaf_entrypoint.stderr`, `vendor_profile_raw.txt`)
+- final output artifacts land under `/audit_workspace/` in the AgentFS overlay:
+  - `scorecard.xlsx`, `scorecard.csv`
+  - `gap_register.xlsx`, `gap_register.csv`
+  - `audit_memo.docx`, `audit_memo.html`
+
+Notes on the shell-side wrapper:
+
+- `saaf_run.sh` copies the workload to tmpfs and extracts a prebuilt `/opt/vendor-guard-venv.tar` into `/tmp/vendor-guard-venv` rather than walking site-packages over NFS — required to dodge NFS readdir races on subdirectories like `docx/parts`.
+- `saaf_entrypoint.py` calls `disable_pydantic_plugin_discovery()` before importing `main`, so pydantic does not scan site-packages over NFS.
+
 ## Setup
 
 ```bash
