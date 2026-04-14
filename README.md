@@ -98,28 +98,17 @@ All outputs are generated in both Microsoft Office (xlsx, docx) and Google Works
 - Python 3.11+
 - An Anthropic API key with access to Claude Sonnet and Claude Opus
 
-## Shell Integration Status
+## Shell Integration
 
-Vendor_Guard now includes a first SAAF shell integration path:
+Vendor_Guard ships three extra files for running inside `saaf-compliance-shell`:
 
-- `saaf-manifest.yaml`
-- `saaf_entrypoint.py`
-- `saaf_run.sh`
+- `saaf-manifest.yaml` — compliance contract read by the shell
+- `saaf_run.sh` — guest-side wrapper run inside the VM
+- `saaf_entrypoint.py` — Python entrypoint that calls `main.py`'s pipeline
 
-Current integration status (2026-04-14, repeatable — sessions `vendor-guard-a646e7cf` and `vendor-guard-5e3aae84`):
+End-to-end runs complete inside the shell's Firecracker VM and produce the full scorecard, gap register, and audit memo artefacts in the AgentFS overlay under `/audit_workspace/`.
 
-- end-to-end Vendor_Guard runs complete inside the saaf-compliance-shell Firecracker VM
-- guest wrapper, entrypoint, profile extraction, specialist agents, and synthesizers all run inside the VM
-- guest-side logs are visible through AgentFS (`saaf_wrapper.log`, `saaf_entrypoint.log`, `saaf_entrypoint.stdout`, `saaf_entrypoint.stderr`, `vendor_profile_raw.txt`)
-- final output artifacts land under `/audit_workspace/` in the AgentFS overlay:
-  - `scorecard.xlsx`, `scorecard.csv`
-  - `gap_register.xlsx`, `gap_register.csv`
-  - `audit_memo.docx`, `audit_memo.html`
-
-Notes on the shell-side wrapper:
-
-- `saaf_run.sh` copies the workload to tmpfs and extracts a prebuilt `/opt/vendor-guard-venv.tar` into `/tmp/vendor-guard-venv` rather than walking site-packages over NFS — required to dodge NFS readdir races on subdirectories like `docx/parts`.
-- `saaf_entrypoint.py` calls `disable_pydantic_plugin_discovery()` before importing `main`, so pydantic does not scan site-packages over NFS.
+See [`docs/SHELL_INTEGRATION.md`](docs/SHELL_INTEGRATION.md) for the full walkthrough: what each file does, why the wrapper is shaped the way it is, and how to run the shell-wrapped path.
 
 ## Setup
 
