@@ -106,16 +106,20 @@ Vendor_Guard now includes a first SAAF shell integration path:
 - `saaf_entrypoint.py`
 - `saaf_run.sh`
 
-Current integration status:
+Current integration status (2026-04-13):
 
-- the workload can start inside the shell
-- the guest wrapper and entrypoint run
-- vendor profile extraction now runs inside the shell and returns a parsed profile
-- guest side logs are visible through AgentFS (`saaf_wrapper.log`, `saaf_entrypoint.stdout`, `saaf_entrypoint.stderr`)
-- the remaining blockers are workload level, not shell bring up
-- current open issue: specialist agent and final output generation need additional hardening before full in-shell production use
+- end-to-end Vendor_Guard runs complete inside the saaf-compliance-shell Firecracker VM
+- guest wrapper, entrypoint, profile extraction, specialist agents, and synthesizers all run inside the VM
+- guest-side logs are visible through AgentFS (`saaf_wrapper.log`, `saaf_entrypoint.log`, `saaf_entrypoint.stdout`, `saaf_entrypoint.stderr`, `vendor_profile_raw.txt`)
+- final output artifacts land under `/audit_workspace/` in the AgentFS overlay:
+  - `scorecard.xlsx`, `scorecard.csv`
+  - `gap_register.xlsx`, `gap_register.csv`
+  - `audit_memo.docx`, `audit_memo.html`
 
-In other words, the shell path is real, but Vendor_Guard still needs further hardening around model response handling and output generation before the full product flow is complete inside the VM.
+Notes on the shell-side wrapper:
+
+- `saaf_run.sh` copies the workload to tmpfs and extracts a prebuilt `/opt/vendor-guard-venv.tar` into `/tmp/vendor-guard-venv` rather than walking site-packages over NFS — required to dodge NFS readdir races on subdirectories like `docx/parts`.
+- `saaf_entrypoint.py` calls `disable_pydantic_plugin_discovery()` before importing `main`, so pydantic does not scan site-packages over NFS.
 
 ## Setup
 
