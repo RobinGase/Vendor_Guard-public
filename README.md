@@ -108,7 +108,7 @@ Vendor_Guard ships three extra files for running inside `saaf-compliance-shell`:
 
 End-to-end runs complete inside the shell's Firecracker VM and produce the full scorecard, gap register, and audit memo artefacts in the AgentFS overlay under `/audit_workspace/`.
 
-See [`docs/SHELL_INTEGRATION.md`](docs/SHELL_INTEGRATION.md) for the full walkthrough: what each file does, why the wrapper is shaped the way it is, and how to run the shell-wrapped path.
+See [`docs/SHELL_INTEGRATION.md`](docs/SHELL_INTEGRATION.md) for the full walkthrough: what each file does, why the wrapper is shaped the way it is, and how to run the shell-wrapped path. The integration is pinned at shell **v0.8.7**; see the [shell CHANGELOG](https://github.com/RobinGase/saaf-compliance-shell/blob/main/CHANGELOG.md) for the release history behind that pin.
 
 ## Setup
 

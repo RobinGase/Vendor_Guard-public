@@ -8,10 +8,12 @@ Nothing about Vendor_Guard's logic changes under the shell. The shell wraps the 
 
 1. A Firecracker microVM isolates the process from the host.
 2. AgentFS captures every file the workload writes.
-3. NeMo Guardrails intercepts all model traffic for PII masking and injection defence.
-4. A SHA-256 chained audit log records session events on the host.
+3. NeMo Guardrails intercepts all model traffic for PII masking, injection defence, and 12 pure-Python output rails covering verdict/absolutism/citation/CoT-leakage/incident-deadline/case-law plausibility.
+4. A SHA-256 chained audit log records session events on the host, including per-rail decisions.
 
 From Vendor_Guard's point of view, the only visible difference is that inference goes to `$INFERENCE_URL` (injected by the shell) instead of the Anthropic API.
+
+The shell is pinned at **v0.8.7** (2026-04-19) for this integration. See the [shell CHANGELOG](https://github.com/RobinGase/saaf-compliance-shell/blob/main/CHANGELOG.md) for release notes. The rail set, `/health` contract, and manifest schema described below match that release.
 
 ## The three files that make it work
 
@@ -26,6 +28,8 @@ Key declarations:
 - `network.allow: [{host: gateway, port: 8088}]` — the only reachable endpoint.
 - `resources: {vcpu_count: 2, mem_size_mib: 2048}` — VM sizing.
 - `pii.entities: [PERSON, EMAIL_ADDRESS, BSN_NL]` — which Presidio recognisers apply.
+
+Since shell v0.8.7 (H1), the manifest validator rejects shell metacharacters (`$`, `` ` ``, `;`, `&`, `|`, quotes, newlines) in `agent.entrypoint`, `agent.working_directory`, and `agent.env` keys/values. Anything that would have to be escaped before reaching the Firecracker kernel cmdline is now a hard validation failure, not a runtime escape.
 
 ### `saaf_run.sh`
 
@@ -43,7 +47,7 @@ The Python entrypoint. Runs inside the VM. Handles:
 
 - `disable_pydantic_plugin_discovery()` — monkeypatches `importlib.metadata.distributions` to return an empty list. Pydantic otherwise scans every site-packages dist at import time, and that scan walks over NFS even after the venv has been copied to tmpfs. Disabling it prevents a noticeable cold-start hang.
 - `resolve_inputs()` — picks up `VENDOR_QUESTIONNAIRE`, `VENDOR_DOCS`, and `VENDOR_OUTPUT_DIR` from env, with sensible fallbacks to the sample files.
-- `wait_for_inference_ready()` — polls `$INFERENCE_URL`'s `/health` endpoint before running the pipeline, so transient cold-start errors at guardrails do not kill the session.
+- `wait_for_inference_ready()` — polls `$INFERENCE_URL`'s `/health` endpoint before running the pipeline, so transient cold-start errors at guardrails do not kill the session. Since shell v0.8.6 `/health` also actively probes audit-log writability and returns 503 on failure, so a stuck disk is detected before the workload starts.
 - Calls `run_pipeline()` from `main.py`.
 
 Writes a line-oriented status log to `/audit_workspace/saaf_entrypoint.log` so the host can observe progress without reading the VM console.
