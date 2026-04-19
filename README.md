@@ -135,6 +135,16 @@ setx ANTHROPIC_API_KEY "sk-ant-your-key-here"
 
 ## Usage
 
+### Interactive TUI (demo mode)
+
+```bash
+python tui.py
+```
+
+Drag a vendor packet (questionnaire + SOC 2 / ISO / DORA docs) directly into the terminal window — the paths are auto-queued. Type `/audit` to run the full pipeline, or chat with the assistant about the loaded files. `/help` shows all commands. Start empty with `python tui.py --empty`.
+
+### CLI (batch mode)
+
 Basic usage with the included sample files:
 ```bash
 python main.py --questionnaire sample_vendor_q.txt --docs sample_soc2_report.txt sample_iso_certificate.txt sample_dora_questionnaire.txt
