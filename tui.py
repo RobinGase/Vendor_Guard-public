@@ -51,6 +51,10 @@ DEFAULT_DOCS = [
     REPO_ROOT / "sample_dora_questionnaire.txt",
 ]
 
+# Extensions utils.document_parser can actually read. Used to expand a
+# dropped folder into its queueable children and skip README/images/etc.
+_QUEUEABLE_EXTS = {".pdf", ".docx", ".xlsx", ".txt"}
+
 # Trust boundary: chat backends never receive raw vendor-document text.
 # Audit findings (which are gated by the shell's NeMo rails + Presidio)
 # are the only document-derived content that flows here. The system
@@ -80,6 +84,8 @@ class Session:
 
     console: Console
     queued_files: list[Path] = field(default_factory=list)
+    # Suffixes that the document_parser can actually ingest — used to
+    # expand dropped folders without queueing unrelated assets.
     chat_history: list[tuple[str, str]] = field(default_factory=list)  # (role, content)
     last_audit_summary: str | None = None
     output_dir: Path = field(default_factory=lambda: REPO_ROOT / "output")
@@ -87,6 +93,17 @@ class Session:
     def add_file(self, path: Path) -> str:
         if not path.exists():
             return f"[red]not found:[/red] {path}"
+        if path.is_dir():
+            added = []
+            for child in sorted(path.iterdir()):
+                if child.is_file() and child.suffix.lower() in _QUEUEABLE_EXTS:
+                    if child.resolve() in self.queued_files:
+                        continue
+                    self.queued_files.append(child.resolve())
+                    added.append(child.name)
+            if not added:
+                return f"[yellow]no queueable files in[/yellow] {path.name}"
+            return f"[green]queued[/green] {len(added)} file(s) from {path.name}: {', '.join(added)}"
         if not path.is_file():
             return f"[red]not a file:[/red] {path}"
         if path in self.queued_files:
@@ -134,7 +151,7 @@ def _parse_paths_from_input(raw: str) -> list[Path]:
     out: list[Path] = []
     for token in tokens:
         candidate = Path(_strip_drop_quoting(token)).expanduser()
-        if candidate.exists() and candidate.is_file():
+        if candidate.exists() and (candidate.is_file() or candidate.is_dir()):
             out.append(candidate.resolve())
     return out
 
