@@ -41,7 +41,20 @@ def invoke_chat_model(*, model: str, system: str | None = None, user_prompt: str
         for attempt in range(10):
             try:
                 response = _post_inference(inference_url, payload, timeout=600)
-                return response.json()["choices"][0]["message"]["content"]
+                content = response.json()["choices"][0]["message"]["content"]
+                # Empty-content guard: ollama returns "" with HTTP 200 when the
+                # model truncates a completion (context overflow with small
+                # num_ctx, refusal, or token-budget exhaustion). Silently
+                # returning "" downstream produced placeholder-only artefacts
+                # for 11 minutes before we caught it. Fail loud instead so the
+                # agent can retry or surface the error to the operator.
+                if not content or not content.strip():
+                    raise EmptyInferenceResponse(
+                        f"model returned empty content (attempt {attempt + 1}); "
+                        "likely context overflow or token-budget exhaustion — "
+                        "check ollama /api/ps context_length and num_predict."
+                    )
+                return content
             except TimeoutError as exc:
                 last_error = exc
                 if attempt == 9:
@@ -60,6 +73,13 @@ def invoke_chat_model(*, model: str, system: str | None = None, user_prompt: str
         messages=[{"role": "user", "content": user_prompt}],
     )
     return message.content[0].text.strip()
+
+
+class EmptyInferenceResponse(RuntimeError):
+    """Raised when the inference endpoint returns HTTP 200 with empty
+    content. Treated as a transient model error: the agent's prose
+    fallback catches it and produces a visible, labelled placeholder
+    rather than a silently empty artefact."""
 
 
 class _InferenceResponse:
@@ -88,20 +108,26 @@ def _post_inference(url: str, payload: dict, timeout: int) -> _InferenceResponse
 def extract_json(raw: str):
     """Extract JSON from a model response, stripping markdown fences and preamble.
 
-    Handles three local-model misbehaviours on top of the happy path:
+    Handles four local-model misbehaviours on top of the happy path:
     1. Markdown fences — ```json ... ```
     2. Preamble/prose before the array (tries each `[`/`{` as a start)
-    3. Truncation — salvages complete objects from a cut-off array
+    3. Trailing garbage — qwen sometimes closes the array, then emits
+       `<|endoftext|>` / `<|im_start|>user` and hallucinates a fresh
+       conversation turn with a mangled schema. `raw_decode` stops at
+       the first balanced value so that tail never reaches Pydantic.
+    4. Truncation — salvages complete objects from a cut-off array
     """
     raw = raw.strip()
     match = re.search(r"```(?:json)?\s*\n?(.*?)```", raw, re.DOTALL)
     if match:
         raw = match.group(1).strip()
+    decoder = json.JSONDecoder()
     last_error: Exception | None = None
     for i, ch in enumerate(raw):
         if ch in ("[", "{"):
             try:
-                return json.loads(raw[i:])
+                obj, _ = decoder.raw_decode(raw[i:])
+                return obj
             except json.JSONDecodeError as exc:
                 last_error = exc
                 if ch == "[":
@@ -158,12 +184,21 @@ def invoke_chat_model_json(
 
     Raises JSONRetryFailed if both attempts fail to parse.
     """
-    raw = invoke_chat_model(model=model, system=system, user_prompt=user_prompt, max_tokens=max_tokens)
-    _dump_raw_response(debug_tag, raw, attempt=1)
     try:
-        return extract_json(raw), raw
-    except Exception:
-        pass
+        raw = invoke_chat_model(model=model, system=system, user_prompt=user_prompt, max_tokens=max_tokens)
+    except EmptyInferenceResponse as exc:
+        # First call returned empty content. Record the marker so the
+        # debug dump still tells us what happened, then fall through to
+        # the retry path (same as a parse failure) — gives the model a
+        # second shot before we give up.
+        raw = f"<EMPTY_RESPONSE attempt=1: {exc}>"
+        _dump_raw_response(debug_tag, raw, attempt=1)
+    else:
+        _dump_raw_response(debug_tag, raw, attempt=1)
+        try:
+            return extract_json(raw), raw
+        except Exception:
+            pass
     retry_prompt = (
         f"{user_prompt}\n\n"
         "Your previous response was prose instead of JSON. Below is what you returned:\n\n"
@@ -187,7 +222,12 @@ def invoke_chat_model_json(
         "Output ONLY the JSON array, starting with `[` and ending with `]`. "
         "No markdown fences, no preamble, no explanation. Do NOT return an empty array."
     )
-    raw2 = invoke_chat_model(model=model, system=system, user_prompt=retry_prompt, max_tokens=max_tokens)
+    try:
+        raw2 = invoke_chat_model(model=model, system=system, user_prompt=retry_prompt, max_tokens=max_tokens)
+    except EmptyInferenceResponse as exc:
+        marker = f"<EMPTY_RESPONSE attempt=2: {exc}>"
+        _dump_raw_response(debug_tag, marker, attempt=2)
+        raise JSONRetryFailed(last_raw=marker, original=exc) from exc
     _dump_raw_response(debug_tag, raw2, attempt=2)
     try:
         return extract_json(raw2), raw2

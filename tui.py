@@ -95,6 +95,7 @@ Supported tags (use exactly this grammar):
   <action name="clear"/>               — clear the file queue
   <action name="show"/>                — print the artefact summary panel
   <action name="open" file="NAME"/>    — open a named artefact (e.g. scorecard.csv, gap_register.xlsx, audit_memo.html)
+  <action name="reveal_reasoning"/>    — open the agent reasoning folder in the operator's file manager. You cannot read its contents; this is for the human reviewer.
 
 Rules for actions:
 - At most ONE tag per reply. Never fabricate filenames — only use files visible in the context.
@@ -128,6 +129,13 @@ class Session:
     chat_history: list[tuple[str, str]] = field(default_factory=list)  # (role, content)
     last_audit_summary: str | None = None
     output_dir: Path = field(default_factory=lambda: REPO_ROOT / "output")
+    # Populated when a dispatched audit pulls the remote debug/ folder
+    # back as reasoning. The chat backend's `reveal_reasoning` tool
+    # opens this path in the operator's file manager — the tool
+    # deliberately returns only a boolean status so the chat model
+    # never ingests raw agent reasoning (trust boundary: Claude sees
+    # sanitized output/ artefacts and filenames, never raw prompts).
+    reasoning_path: Path | None = None
 
     def add_file(self, path: Path) -> str:
         if not path.exists():
@@ -531,6 +539,13 @@ _DISPATCH_STATUS_AGENT_RE = re.compile(
     r"^\s+(security|resilience|gov_baseline|ai_trust)\s*:"
 )
 
+# "dispatch: reasoning saved to /path/to/reasoning/<session-id> (N files)"
+# — one emission per successful audit; captures the concrete per-session
+# path so the chat backend can open it later without hardcoding layout.
+_DISPATCH_REASONING_RE = re.compile(
+    r"^dispatch: reasoning saved to (.+?) \(\d+ files?\)$"
+)
+
 
 def _dispatch_status_for_line(line: str) -> str | None:
     """Map a dispatcher/main.py stdout line to a spinner caption.
@@ -544,7 +559,7 @@ def _dispatch_status_for_line(line: str) -> str | None:
     if line.startswith("dispatch: session "):
         return "[cyan]staging files on fedora…[/cyan]"
     if line.startswith("dispatch: remote "):
-        return "[cyan]cooking on qwen3.5:9b (via privacy router)…[/cyan]"
+        return "[cyan]cooking on nemotron-nano-vg (via privacy router)…[/cyan]"
     if "Extracting vendor profile" in line:
         return "[cyan]profiling vendor…[/cyan]"
     if line.startswith("Running agents:"):
@@ -556,6 +571,8 @@ def _dispatch_status_for_line(line: str) -> str | None:
         return "[cyan]writing artefacts…[/cyan]"
     if line.startswith("dispatch:") and "artefacts in" in line:
         return "[cyan]retrieving artefacts…[/cyan]"
+    if line.startswith("dispatch: reasoning saved to"):
+        return "[cyan]retrieving agent reasoning…[/cyan]"
     return None
 
 
@@ -604,15 +621,23 @@ def _cmd_audit_dispatch(session: Session) -> bool:
     session.console.print(f"  [dim]output:[/dim]        {session.output_dir}")
     session.console.print()
 
+    # Reasoning lands in a sibling of output/, not inside it, so that
+    # the chat backend (which scans output/) never ingests raw agent
+    # reasoning. The dispatcher mkdirs <reasoning-dir>/<session-id>/
+    # and scp's the remote debug/ tree into it.
+    reasoning_root = session.output_dir.parent / "reasoning"
+
     argv: list[str] = [
         dispatcher,
         "--questionnaire", str(questionnaire),
         "--output-dir", str(session.output_dir),
+        "--reasoning-dir", str(reasoning_root),
     ]
     for doc in docs:
         argv.extend(["--doc", str(doc)])
 
     session.output_dir.mkdir(parents=True, exist_ok=True)
+    reasoning_root.mkdir(parents=True, exist_ok=True)
 
     # Stream the dispatcher's stdout line-by-line so the operator gets
     # live feedback instead of staring at a silent terminal for the
@@ -636,6 +661,7 @@ def _cmd_audit_dispatch(session: Session) -> bool:
         session.console.print(f"[red]dispatcher crashed:[/red] {exc}")
         return False
 
+    reasoning_path_from_run: Path | None = None
     with session.console.status(
         "[cyan]starting dispatcher…[/cyan]", spinner="dots"
     ) as status:
@@ -648,6 +674,12 @@ def _cmd_audit_dispatch(session: Session) -> bool:
             new_caption = _dispatch_status_for_line(line)
             if new_caption:
                 status.update(new_caption)
+            # The dispatcher prints exactly one "reasoning saved to PATH (N files)"
+            # line after scp'ing debug/ back. Capture the path so the chat
+            # backend's reveal_reasoning tool can open it later.
+            match = _DISPATCH_REASONING_RE.match(line)
+            if match:
+                reasoning_path_from_run = Path(match.group(1))
         returncode = proc.wait()
 
     if returncode != 0:
@@ -669,6 +701,12 @@ def _cmd_audit_dispatch(session: Session) -> bool:
         f"Questionnaire: {questionnaire.name}. Docs: {[d.name for d in docs]}. "
         f"Artefacts retrieved to {session.output_dir}."
     )
+    if reasoning_path_from_run and reasoning_path_from_run.is_dir():
+        session.reasoning_path = reasoning_path_from_run
+        session.console.print(
+            f"  [dim]reasoning:[/dim]    {reasoning_path_from_run} "
+            "[dim](ask me to 'open the reasoning folder' for human review)[/dim]"
+        )
     session.queued_files.clear()
     _render_artefact_summary(session)
     return True
@@ -980,6 +1018,19 @@ def _build_chat_context(session: Session) -> str:
     if session.last_audit_summary:
         bits.append(f"Last audit summary: {session.last_audit_summary}")
 
+    if session.reasoning_path is not None and session.reasoning_path.is_dir():
+        # Advertise that a reasoning folder exists WITHOUT leaking any
+        # content. Claude can trigger <action name="reveal_reasoning"/>
+        # if the user asks, but never reads the folder itself.
+        bits.append(
+            "Agent reasoning folder available for this session. "
+            "If the user asks to see, review, or open the reasoning / "
+            "chain-of-thought / debug output, emit "
+            "<action name=\"reveal_reasoning\"/> and the TUI will open it "
+            "in their file manager. You cannot read its contents — it is "
+            "for the human reviewer only."
+        )
+
     if session.output_dir.is_dir():
         rendered_artefacts: list[str] = []
         for path in sorted(session.output_dir.iterdir()):
@@ -1156,7 +1207,41 @@ def _execute_action(session: Session, name: str, file: str | None) -> tuple[bool
             return False, "open action missing file="
         _cmd_open(session, file)
         return True, f"opened {file}"
+    if name == "reveal_reasoning":
+        return _cmd_reveal_reasoning(session)
     return False, f"unknown action: {name}"
+
+
+def _cmd_reveal_reasoning(session: Session) -> tuple[bool, str]:
+    """Open the current session's reasoning folder in the OS file manager.
+
+    The chat backend can trigger this via <action name="reveal_reasoning"/>
+    but receives back only a one-line status — never a listing, never a
+    byte of content. The reasoning folder holds raw per-agent prompts and
+    responses; the trust boundary keeps those out of the chat model's
+    context even when the human wants to review them.
+    """
+    path = session.reasoning_path
+    if path is None:
+        return False, (
+            "no reasoning folder for this session — reasoning is only "
+            "retrieved after a dispatched /audit completes"
+        )
+    if not path.is_dir():
+        return False, f"reasoning path no longer exists: {path}"
+    try:
+        if sys.platform.startswith("win"):
+            os.startfile(str(path))  # type: ignore[attr-defined]
+        elif sys.platform == "darwin":
+            subprocess.Popen(["open", str(path)])
+        else:
+            subprocess.Popen(["xdg-open", str(path)])
+    except Exception as exc:
+        return False, f"failed to open reasoning folder: {exc}"
+    session.console.print(
+        f"[green]opened reasoning folder:[/green] {path}"
+    )
+    return True, f"reasoning folder opened for the human reviewer at {path}"
 
 
 def _cmd_chat(session: Session, user_text: str) -> None:

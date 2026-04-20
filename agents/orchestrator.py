@@ -2,7 +2,7 @@ import os
 import re
 from pathlib import Path
 
-from agents.base import extract_json, invoke_chat_model
+from agents.base import EmptyInferenceResponse, extract_json, invoke_chat_model
 from models.finding import VendorProfile
 
 MODEL = "claude-opus-4-6"
@@ -28,12 +28,18 @@ Return ONLY the JSON object. No preamble or markdown fences.
 
 def build_vendor_profile(vendor_docs: str) -> VendorProfile:
     vendor_docs = vendor_docs[:MAX_VENDOR_DOC_CHARS]
-    raw = invoke_chat_model(
-        model=MODEL,
-        max_tokens=1024,
-        system=SYSTEM_PROMPT,
-        user_prompt=f"Extract the vendor profile from these documents:\n\n{vendor_docs}",
-    )
+    try:
+        raw = invoke_chat_model(
+            model=MODEL,
+            max_tokens=1024,
+            system=SYSTEM_PROMPT,
+            user_prompt=f"Extract the vendor profile from these documents:\n\n{vendor_docs}",
+        )
+    except EmptyInferenceResponse as exc:
+        # Empty profile call — don't crash the whole pipeline; record
+        # the marker in the debug dump and fall through with an empty
+        # profile so the security agent still runs on the baseline.
+        raw = f"<EMPTY_RESPONSE: {exc}>"
     debug_path = os.getenv("VENDOR_PROFILE_DEBUG_PATH")
     if debug_path:
         Path(debug_path).write_text(raw, encoding="utf-8")
