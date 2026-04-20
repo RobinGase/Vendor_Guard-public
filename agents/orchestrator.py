@@ -41,11 +41,28 @@ def build_vendor_profile(vendor_docs: str) -> VendorProfile:
         data = extract_json(raw)
     except Exception:
         data = _parse_profile_from_prose(raw)
+    # Strip markdown artifacts whichever path produced `data` — local
+    # models sometimes wrap the name in `**bold**` even when emitting JSON.
+    if isinstance(data.get("name"), str):
+        data["name"] = _clean_profile_field(data["name"])
+    if isinstance(data.get("sector"), str):
+        data["sector"] = _clean_profile_field(data["sector"])
+    if isinstance(data.get("services"), list):
+        data["services"] = [_clean_profile_field(s) for s in data["services"] if isinstance(s, str) and _clean_profile_field(s)]
     return VendorProfile(**data)
 
 
+FINANCIAL_SECTOR_KEYWORDS = ("financ", "bank", "insur", "payment", "fintech", "credit", "asset manag")
+
+
 def determine_frameworks(profile: VendorProfile) -> list[str]:
-    agents = ["security", "resilience"]
+    # Security is the baseline for every vendor (ISO 27001 + NIS2 + CBW).
+    # Other agents only fire when their framework actually applies — e.g.
+    # DORA is scoped to EU financial entities, not every vendor.
+    agents = ["security"]
+    sector = (profile.sector or "").lower()
+    if any(kw in sector for kw in FINANCIAL_SECTOR_KEYWORDS):
+        agents.append("resilience")
     if profile.is_dutch_government_vendor:
         agents.append("gov_baseline")
     if profile.is_ai_system:
@@ -53,17 +70,28 @@ def determine_frameworks(profile: VendorProfile) -> list[str]:
     return agents
 
 
+# Chars a local model likes to wrap around field values: markdown bold,
+# italics, bullets, trailing punctuation. Stripping these keeps downstream
+# renderings (memo title, scorecard) from showing `HealthSync**` etc.
+_PROFILE_FIELD_STRIP = " \t*_`#-•:"
+
+
+def _clean_profile_field(value: str) -> str:
+    return value.strip(_PROFILE_FIELD_STRIP).strip()
+
+
 def _parse_profile_from_prose(raw: str) -> dict:
     def extract(pattern: str, default: str = "") -> str:
         match = re.search(pattern, raw, flags=re.IGNORECASE | re.MULTILINE)
-        return match.group(1).strip() if match else default
+        return _clean_profile_field(match.group(1)) if match else default
 
-    services = re.findall(r"^-\s+(.+)$", raw, flags=re.MULTILINE)
+    services_raw = re.findall(r"^[-*•]\s+(.+)$", raw, flags=re.MULTILINE)
+    services = [_clean_profile_field(s) for s in services_raw if _clean_profile_field(s)]
     frameworks_text = extract(r"Applicable Frameworks:\s*(.+)$")
-    frameworks = [item.strip() for item in frameworks_text.split(",") if item.strip()]
+    frameworks = [_clean_profile_field(item) for item in frameworks_text.split(",") if _clean_profile_field(item)]
 
     return {
-        "name": extract(r"Vendor Profile:\s*(.+)$") or extract(r"Name:\s*(.+)$"),
+        "name": extract(r"Vendor (?:Profile|Name):\s*(.+)$") or extract(r"Name:\s*(.+)$"),
         "sector": extract(r"Sector:\s*(.+)$"),
         "services": services,
         "processes_personal_data": extract(r"Personal Data Processing:\s*(.+)$").lower().startswith("y"),

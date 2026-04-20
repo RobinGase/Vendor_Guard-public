@@ -16,5 +16,16 @@ printf '%s\n' "wrapper_venv_extracted" >> /audit_workspace/saaf_wrapper.log
 
 cd /tmp/vendor_guard_runtime
 printf '%s\n' "wrapper_python_exec" >> /audit_workspace/saaf_wrapper.log
+
+# TUI writes queued.env with VENDOR_QUESTIONNAIRE / VENDOR_DOCS pointing at
+# files it staged under /audit_workspace/vendor_guard/queued/. Sourcing here
+# keeps the manifest stable — per-run inputs flow through the dropfile.
+if [ -f /audit_workspace/queued.env ]; then
+  printf '%s\n' "wrapper_sourcing_queued_env" >> /audit_workspace/saaf_wrapper.log
+  set -a
+  . /audit_workspace/queued.env
+  set +a
+fi
+
 PYTHONPATH="/tmp/vendor_guard_runtime:/tmp/vendor-guard-venv/lib/python3.12/site-packages${PYTHONPATH:+:$PYTHONPATH}" \
   exec /usr/bin/python3.12 /tmp/vendor_guard_runtime/saaf_entrypoint.py >> /audit_workspace/saaf_entrypoint.stdout 2>> /audit_workspace/saaf_entrypoint.stderr

@@ -150,3 +150,43 @@ def test_determine_frameworks_ai_gov():
     assert "security" in frameworks
     assert "gov_baseline" in frameworks
     assert "ai_trust" in frameworks
+
+
+def test_determine_frameworks_healthcare_skips_dora():
+    # DORA applies to EU financial entities, not healthcare vendors.
+    # Before the fix, resilience fired unconditionally — HealthSync got
+    # DORA findings even though it's a hospital-integration middleware.
+    profile = VendorProfile(
+        name="HealthCo",
+        sector="Healthcare IT / EHR integration",
+        services=["HL7 routing"],
+        processes_personal_data=True,
+        is_ai_system=False,
+        is_dutch_government_vendor=False,
+        applicable_frameworks=[],
+    )
+    frameworks = determine_frameworks(profile)
+    assert "security" in frameworks
+    assert "resilience" not in frameworks
+
+
+def test_build_vendor_profile_strips_markdown_bold_from_name(mocker):
+    # Local models (nemotron-nano) wrap field values in `**bold**` even
+    # when the prompt says not to. That leaked straight into the memo
+    # title as `HealthSync Solutions B.V.**` — fixed by _clean_profile_field.
+    profile_data = {
+        "name": "**HealthSync Solutions B.V.**",
+        "sector": "** Healthcare IT",
+        "services": ["**HL7 routing**", "FHIR gateway"],
+        "processes_personal_data": True,
+        "is_ai_system": False,
+        "is_dutch_government_vendor": False,
+        "applicable_frameworks": ["ISO 27001", "NEN 7510"],
+    }
+    mocker.patch("agents.orchestrator.invoke_chat_model", return_value=json.dumps(profile_data))
+
+    profile = build_vendor_profile(SAMPLE_DOCS_NON_AI)
+
+    assert profile.name == "HealthSync Solutions B.V."
+    assert profile.sector == "Healthcare IT"
+    assert profile.services == ["HL7 routing", "FHIR gateway"]

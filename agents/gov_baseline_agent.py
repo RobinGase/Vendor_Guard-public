@@ -1,4 +1,4 @@
-from agents.base import fallback_finding_from_prose, load_prompt, extract_json, invoke_chat_model
+from agents.base import JSONRetryFailed, fallback_finding_from_prose, invoke_chat_model_json, load_prompt
 from models.finding import Finding
 
 MODEL = "claude-sonnet-4-6"
@@ -33,19 +33,19 @@ def run_gov_baseline_agent(vendor_docs: str) -> list[Finding]:
     bio2 = load_prompt("bio2_controls")
     system = SYSTEM_PROMPT.format(bio2=bio2)
 
-    raw = invoke_chat_model(
-        model=MODEL,
-        max_tokens=8192,
-        system=system,
-        user_prompt=f"Please assess the following vendor documents:\n\n{vendor_docs}",
-    )
     try:
-        findings_data = extract_json(raw)
-    except Exception:
+        findings_data, _ = invoke_chat_model_json(
+            model=MODEL,
+            max_tokens=8192,
+            system=system,
+            user_prompt=f"Please assess the following vendor documents:\n\n{vendor_docs}",
+            debug_tag="gov_baseline",
+        )
+    except JSONRetryFailed as exc:
         findings_data = fallback_finding_from_prose(
             framework="BIO2",
             control_id="BIO2-PROSE-01",
             control_name="Narrative BIO2 assessment",
-            raw=raw,
+            raw=exc.last_raw,
         )
     return [Finding(**f) for f in findings_data]

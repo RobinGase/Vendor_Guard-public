@@ -35,7 +35,7 @@ def test_ai_trust_agent_returns_findings(mocker):
             "recommendation": "Verify override mechanism is technically enforced, not just procedural.",
         }
     ]
-    mocker.patch("agents.ai_trust_agent.invoke_chat_model", return_value=json.dumps(mock_findings))
+    mocker.patch("agents.base.invoke_chat_model", return_value=json.dumps(mock_findings))
 
     findings = run_ai_trust_agent(SAMPLE_DOCS)
     assert len(findings) == 1
@@ -45,7 +45,7 @@ def test_ai_trust_agent_returns_findings(mocker):
 
 def test_ai_trust_agent_falls_back_to_single_finding_for_prose_response(mocker):
     prose = "The vendor appears to have limited AI governance evidence and no full risk classification details."
-    mocker.patch("agents.ai_trust_agent.invoke_chat_model", return_value=prose)
+    mocker.patch("agents.base.invoke_chat_model", return_value=prose)
 
     findings = run_ai_trust_agent(SAMPLE_DOCS)
 

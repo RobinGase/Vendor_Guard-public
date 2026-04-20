@@ -32,7 +32,7 @@ def test_gov_baseline_agent_returns_findings(mocker):
             "recommendation": "No action required.",
         }
     ]
-    mocker.patch("agents.gov_baseline_agent.invoke_chat_model", return_value=json.dumps(mock_findings))
+    mocker.patch("agents.base.invoke_chat_model", return_value=json.dumps(mock_findings))
 
     findings = run_gov_baseline_agent(SAMPLE_DOCS)
     assert len(findings) == 1
@@ -42,7 +42,7 @@ def test_gov_baseline_agent_returns_findings(mocker):
 
 def test_gov_baseline_agent_falls_back_to_single_finding_for_prose_response(mocker):
     prose = "The vendor uses strong cryptography, but the BIO2 specific evidence is incomplete."
-    mocker.patch("agents.gov_baseline_agent.invoke_chat_model", return_value=prose)
+    mocker.patch("agents.base.invoke_chat_model", return_value=prose)
 
     findings = run_gov_baseline_agent(SAMPLE_DOCS)
 

@@ -8,6 +8,7 @@ agent:
   env:
     INFERENCE_URL: http://172.16.0.1:8088/v1/chat/completions
     VENDOR_OUTPUT_DIR: /audit_workspace
+    VENDOR_AGENT_DEBUG_DIR: /audit_workspace/agent_raw
 
 data_classification:
   default: sensitive

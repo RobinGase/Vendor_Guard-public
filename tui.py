@@ -31,7 +31,19 @@ import shlex
 import shutil
 import subprocess
 import sys
+import tempfile
 import traceback
+
+# Enabling GNU readline line editing for input() globally. Without this
+# the arrow keys emit raw escape sequences (^[[D etc.) instead of
+# moving the cursor. Import-for-side-effect; no symbols used directly.
+try:
+    import readline  # noqa: F401
+except ImportError:
+    # readline isn't available on stock Windows Python; the Windows
+    # build-in cmd.exe handling covers line editing there, so the
+    # import failure is safe to ignore.
+    pass
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -288,6 +300,7 @@ SHELL_MANIFEST = Path(os.environ.get(
     "SAAF_SHELL_MANIFEST", str(REPO_ROOT / "saaf-manifest.yaml"),
 ))
 SHELL_AGENTFS = os.environ.get("SAAF_AGENTFS_BIN", "/usr/local/bin/agentfs")
+SHELL_AGENTFS_WORKDIR = os.environ.get("SAAF_AGENTFS_WORKDIR", "/opt/saaf")
 SHELL_AUDIT_LOG = os.environ.get("SAAF_AUDIT_LOG", "/var/lib/saaf/audit.jsonl")
 SHELL_OUTPUT_FILES = (
     "scorecard.csv", "scorecard.xlsx",
@@ -305,7 +318,7 @@ def _sudo_prefix() -> list[str]:
     return ["sudo", "-n"]
 
 
-def _run_sudo(argv: list[str], *, timeout: int) -> subprocess.CompletedProcess[bytes]:
+def _run_sudo(argv: list[str], *, timeout: int, cwd: str | None = None) -> subprocess.CompletedProcess[bytes]:
     cmd = _sudo_prefix() + argv
     pwd = os.environ.get("SAAF_SUDO_PASSWORD")
     return subprocess.run(
@@ -313,7 +326,81 @@ def _run_sudo(argv: list[str], *, timeout: int) -> subprocess.CompletedProcess[b
         input=(pwd + "\n").encode() if pwd else None,
         capture_output=True,
         timeout=timeout,
+        cwd=cwd,
     )
+
+
+def _stage_queued_inputs(session: Session) -> bool:
+    """Copy session.queued_files into the rootfs and write queued.env.
+
+    saaf_run.sh (inside the VM) sources /audit_workspace/queued.env to
+    pick up VENDOR_QUESTIONNAIRE / VENDOR_DOCS. That's how per-run
+    inputs flow in without rewriting the manifest each time.
+
+    Also clears any leftover outputs from prior runs so the AgentFS
+    overlay diff only contains this run's artefacts.
+    """
+    workspace = f"{SHELL_ROOTFS}/audit_workspace"
+    queued_dir = f"{workspace}/vendor_guard/queued"
+    env_file = f"{workspace}/queued.env"
+
+    stale_outputs = " ".join(f"{workspace}/{f}" for f in SHELL_OUTPUT_FILES)
+    prep = _run_sudo(
+        ["sh", "-c", f"rm -rf {queued_dir} {env_file} {stale_outputs} && mkdir -p {queued_dir}"],
+        timeout=30,
+    )
+    if prep.returncode != 0:
+        session.console.print("[red]failed to prep staging dir:[/red]")
+        session.console.print(prep.stderr.decode(errors="replace")[-500:])
+        return False
+
+    for src in session.queued_files:
+        cp = _run_sudo(["cp", "--", str(src), f"{queued_dir}/{src.name}"], timeout=30)
+        if cp.returncode != 0:
+            session.console.print(f"[red]failed to stage {src.name}:[/red]")
+            session.console.print(cp.stderr.decode(errors="replace")[-500:])
+            return False
+
+    q_candidates = [p for p in session.queued_files if "questionnaire" in p.name.lower()]
+    questionnaire = q_candidates[0] if q_candidates else session.queued_files[0]
+    docs = [p for p in session.queued_files if p != questionnaire]
+
+    guest_queued = "/audit_workspace/vendor_guard/queued"
+    # Values are double-quoted because the file is sourced by /bin/sh
+    # inside the VM — unquoted semicolons in VENDOR_DOCS would be
+    # parsed as command separators. Filenames come from the user's
+    # queue and are treated as trusted, but we still forbid '"' and
+    # backslash to keep the sourcing safe.
+    for p in session.queued_files:
+        if '"' in p.name or "\\" in p.name or "$" in p.name or "`" in p.name:
+            session.console.print(f"[red]refusing to stage file with shell-unsafe name:[/red] {p.name}")
+            return False
+    env_body = (
+        f'VENDOR_QUESTIONNAIRE="{guest_queued}/{questionnaire.name}"\n'
+        f'VENDOR_DOCS="{";".join(f"{guest_queued}/{d.name}" for d in docs)}"\n'
+    )
+    # Write to a tmpfile we own, then sudo-mv into place. Piping the
+    # body through sudo -S stdin races with sudo's credential cache
+    # (when cached, -S doesn't consume the password line and it leaks
+    # into tee's stdout).
+    with tempfile.NamedTemporaryFile("w", delete=False, suffix=".env") as tf:
+        tf.write(env_body)
+        tmp_env_path = tf.name
+    mv = _run_sudo(["install", "-m", "644", "--", tmp_env_path, env_file], timeout=10)
+    try:
+        os.unlink(tmp_env_path)
+    except OSError:
+        pass
+    if mv.returncode != 0:
+        session.console.print("[red]failed to write queued.env:[/red]")
+        session.console.print(mv.stderr.decode(errors="replace")[-500:])
+        return False
+
+    session.console.print(
+        f"  [dim]staged:[/dim] {len(session.queued_files)} file(s) → "
+        f"questionnaire=[cyan]{questionnaire.name}[/cyan], docs={len(docs)}"
+    )
+    return True
 
 
 def _cmd_audit_shell(session: Session) -> None:
@@ -346,6 +433,14 @@ def _cmd_audit_shell(session: Session) -> None:
     session.console.print(f"  [dim]manifest:[/dim] {SHELL_MANIFEST}")
     session.console.print(f"  [dim]rootfs:[/dim]   {SHELL_ROOTFS}")
     session.console.print(f"  [dim]audit log:[/dim] {SHELL_AUDIT_LOG}")
+
+    if session.queued_files:
+        if not _stage_queued_inputs(session):
+            return
+    else:
+        session.console.print(
+            "  [yellow]no queued files — audit will use baked-in sample inputs.[/yellow]"
+        )
     session.console.print()
 
     runner = (
@@ -398,7 +493,7 @@ def _cmd_audit_shell(session: Session) -> None:
     for fname in SHELL_OUTPUT_FILES:
         guest_path = f"/audit_workspace/{fname}"
         try:
-            extract = _run_sudo([SHELL_AGENTFS, "fs", "cat", session_id, guest_path], timeout=30)
+            extract = _run_sudo([SHELL_AGENTFS, "fs", session_id, "cat", guest_path], timeout=30, cwd=SHELL_AGENTFS_WORKDIR)
         except subprocess.TimeoutExpired:
             missing.append(fname)
             continue
@@ -427,6 +522,7 @@ def _cmd_audit_shell(session: Session) -> None:
         "Outputs were produced by the local model under 12 NeMo rails + Presidio PII "
         f"redaction, and the run is recorded in the hash-chained audit log at {SHELL_AUDIT_LOG}."
     )
+    session.queued_files.clear()
 
     _render_artefact_summary(session)
 
@@ -463,8 +559,9 @@ def _cmd_audit_dispatch(session: Session) -> bool:
         return False
 
     dispatcher = os.environ["VENDOR_GUARD_AUDIT_DISPATCH"]
-    questionnaire = session.queued_files[0]
-    docs = session.queued_files[1:]
+    q_candidates = [p for p in session.queued_files if "questionnaire" in p.name.lower()]
+    questionnaire = q_candidates[0] if q_candidates else session.queued_files[0]
+    docs = [p for p in session.queued_files if p != questionnaire]
 
     session.console.print()
     session.console.print(Rule("[bold]Audit via dispatcher[/bold]", style="magenta"))
@@ -513,6 +610,7 @@ def _cmd_audit_dispatch(session: Session) -> bool:
         f"Questionnaire: {questionnaire.name}. Docs: {[d.name for d in docs]}. "
         f"Artefacts retrieved to {session.output_dir}."
     )
+    session.queued_files.clear()
     _render_artefact_summary(session)
     return True
 
@@ -536,8 +634,9 @@ def _cmd_audit(session: Session) -> None:
         )
         return
 
-    questionnaire = session.queued_files[0]
-    docs = session.queued_files[1:]
+    q_candidates = [p for p in session.queued_files if "questionnaire" in p.name.lower()]
+    questionnaire = q_candidates[0] if q_candidates else session.queued_files[0]
+    docs = [p for p in session.queued_files if p != questionnaire]
 
     session.console.print()
     session.console.print(Rule(f"[bold]Auditing {questionnaire.name}[/bold]", style="magenta"))
@@ -594,6 +693,7 @@ def _cmd_audit(session: Session) -> None:
         f"Outputs written to {session.output_dir}. "
         + (f"Agent failures: {[name for name, _ in failed]}. " if failed else "All agents succeeded. ")
     )
+    session.queued_files.clear()
 
     _render_artefact_summary(session)
 
@@ -840,6 +940,12 @@ def _build_chat_context(session: Session) -> str:
     return "\n\n".join(bits)
 
 
+class ClaudeCodeCLIError(Exception):
+    """Real claude CLI subprocess failure — not an SDK-missing condition.
+    Kept distinct from RuntimeError so _dispatch_chat doesn't mistake a
+    CLI crash for a missing install and silently fall back to the API path."""
+
+
 def _chat_via_claude_code(system: str, user_prompt: str) -> str:
     """Use the user's Claude Code subscription via claude-agent-sdk.
 
@@ -859,15 +965,33 @@ def _chat_via_claude_code(system: str, user_prompt: str) -> str:
             "claude-agent-sdk not installed (pip install claude-agent-sdk)"
         ) from exc
 
+    # Capture claude CLI debug output to a tempfile. Can't use the
+    # stderr= callback reliably: the SDK cancels its async reader task
+    # on close(), dropping any lines still buffered when the process
+    # exits non-zero — exactly the failure case we need to diagnose.
+    # debug_stderr= writes with flush() per line, so lines that were
+    # processed before cancellation survive on disk.
+    stderr_log = tempfile.NamedTemporaryFile(
+        mode="w", suffix=".log", prefix="vg_claude_stderr_", delete=False
+    )
     options = ClaudeAgentOptions(
         system_prompt=system,
         allowed_tools=[],  # chat-only; no shell/read/write inside the SDK
         max_turns=1,
         permission_mode="default",
+        debug_stderr=stderr_log,
+        extra_args={"debug-to-stderr": None},
     )
 
+    # Hold chunks in an outer list so we can still return whatever the
+    # model produced if the SDK raises *after* the reply arrived. This is
+    # the generate_session_title race: CLI has a background title task
+    # that streams in parallel to the reply; when max_turns=1 completes
+    # the SDK closes stdin, the title task hits EPIPE, and the CLI exits
+    # 1 — even though the user-visible reply was already delivered.
+    chunks: list[str] = []
+
     async def _drive() -> str:
-        chunks: list[str] = []
         async for msg in query(prompt=user_prompt, options=options):
             if isinstance(msg, AssistantMessage):
                 for block in msg.content:
@@ -875,7 +999,38 @@ def _chat_via_claude_code(system: str, user_prompt: str) -> str:
                         chunks.append(block.text)
         return "".join(chunks).strip()
 
-    return asyncio.run(_drive())
+    try:
+        try:
+            return asyncio.run(_drive())
+        finally:
+            stderr_log.close()
+    except RuntimeError:
+        # SDK-missing path; leave to caller for fallback.
+        raise
+    except Exception as exc:
+        # If we already got a reply, swallow the post-reply exit-1 from
+        # the session-title background-task race. The user got their
+        # answer; the CLI just couldn't cleanly finish its bookkeeping.
+        if chunks:
+            try:
+                os.unlink(stderr_log.name)
+            except OSError:
+                pass
+            return "".join(chunks).strip()
+        # No reply at all → this is a real failure. Surface stderr tail
+        # via a distinct class so _dispatch_chat doesn't mistake a CLI
+        # crash for a missing install and silently fall back to the API.
+        try:
+            with open(stderr_log.name, "r", errors="replace") as fh:
+                captured = fh.read().splitlines()
+        except OSError:
+            captured = []
+        if captured:
+            tail = "\n".join(captured[-25:])
+            raise ClaudeCodeCLIError(
+                f"{exc}\n--- claude stderr ({stderr_log.name}, last 25 lines) ---\n{tail}"
+            ) from exc
+        raise ClaudeCodeCLIError(f"{exc} (no stderr captured at {stderr_log.name})") from exc
 
 
 def _chat_via_anthropic(system: str, user_prompt: str) -> str:

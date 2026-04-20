@@ -74,8 +74,7 @@ def test_full_pipeline(tmp_path, mocker):
         return json.dumps(SECURITY_FINDINGS)
 
     mocker.patch("agents.orchestrator.invoke_chat_model", side_effect=route_call)
-    mocker.patch("agents.security_agent.invoke_chat_model", side_effect=route_call)
-    mocker.patch("agents.resilience_agent.invoke_chat_model", side_effect=route_call)
+    mocker.patch("agents.base.invoke_chat_model", side_effect=route_call)
     mocker.patch("synthesizer.memo.invoke_chat_model", side_effect=route_call)
 
     from main import run_pipeline
@@ -114,8 +113,7 @@ def test_full_pipeline_continues_when_one_agent_fails(tmp_path, mocker):
         return json.dumps(SECURITY_FINDINGS)
 
     mocker.patch("agents.orchestrator.invoke_chat_model", side_effect=route_call)
-    mocker.patch("agents.security_agent.invoke_chat_model", side_effect=route_call)
-    mocker.patch("agents.resilience_agent.invoke_chat_model", side_effect=route_call)
+    mocker.patch("agents.base.invoke_chat_model", side_effect=route_call)
     mocker.patch("synthesizer.memo.invoke_chat_model", side_effect=route_call)
 
     from main import run_pipeline

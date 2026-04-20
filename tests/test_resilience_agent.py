@@ -33,7 +33,7 @@ def test_resilience_agent_returns_findings(mocker):
             "recommendation": "Continue annual testing; consider TLPT as entity grows.",
         }
     ]
-    mocker.patch("agents.resilience_agent.invoke_chat_model", return_value=json.dumps(mock_findings))
+    mocker.patch("agents.base.invoke_chat_model", return_value=json.dumps(mock_findings))
 
     findings = run_resilience_agent(SAMPLE_DOCS)
     assert len(findings) == 1
@@ -42,7 +42,7 @@ def test_resilience_agent_returns_findings(mocker):
 
 
 def test_resilience_agent_returns_list(mocker):
-    mocker.patch("agents.resilience_agent.invoke_chat_model", return_value=json.dumps([]))
+    mocker.patch("agents.base.invoke_chat_model", return_value=json.dumps([]))
 
     findings = run_resilience_agent(SAMPLE_DOCS)
     assert isinstance(findings, list)
@@ -50,7 +50,7 @@ def test_resilience_agent_returns_list(mocker):
 
 def test_resilience_agent_falls_back_to_single_finding_for_prose_response(mocker):
     prose = "The vendor documents show some resilience practices, but no complete ICT risk management framework was provided."
-    mocker.patch("agents.resilience_agent.invoke_chat_model", return_value=prose)
+    mocker.patch("agents.base.invoke_chat_model", return_value=prose)
 
     findings = run_resilience_agent(SAMPLE_DOCS)
 

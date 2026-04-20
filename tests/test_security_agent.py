@@ -36,7 +36,7 @@ def test_security_agent_returns_findings(mocker):
             "recommendation": "Define a critical patch SLA of 72 hours.",
         }
     ]
-    mocker.patch("agents.security_agent.invoke_chat_model", return_value=json.dumps(mock_findings))
+    mocker.patch("agents.base.invoke_chat_model", return_value=json.dumps(mock_findings))
 
     findings = run_security_agent(SAMPLE_VENDOR_DOCS)
 
@@ -47,7 +47,7 @@ def test_security_agent_returns_findings(mocker):
 
 
 def test_security_agent_returns_list(mocker):
-    mocker.patch("agents.security_agent.invoke_chat_model", return_value=json.dumps([]))
+    mocker.patch("agents.base.invoke_chat_model", return_value=json.dumps([]))
 
     findings = run_security_agent(SAMPLE_VENDOR_DOCS)
     assert isinstance(findings, list)
@@ -63,7 +63,7 @@ def test_security_agent_requires_api_key(monkeypatch, mocker):
 
 def test_security_agent_falls_back_to_single_finding_for_prose_response(mocker):
     prose = "Vendor has documented MFA and quarterly access reviews, but no formal access control policy was provided."
-    mocker.patch("agents.security_agent.invoke_chat_model", return_value=prose)
+    mocker.patch("agents.base.invoke_chat_model", return_value=prose)
 
     findings = run_security_agent(SAMPLE_VENDOR_DOCS)
 

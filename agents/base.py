@@ -40,7 +40,7 @@ def invoke_chat_model(*, model: str, system: str | None = None, user_prompt: str
         last_error = None
         for attempt in range(10):
             try:
-                response = _post_inference(inference_url, payload, timeout=120)
+                response = _post_inference(inference_url, payload, timeout=600)
                 return response.json()["choices"][0]["message"]["content"]
             except TimeoutError as exc:
                 last_error = exc
@@ -86,24 +86,113 @@ def _post_inference(url: str, payload: dict, timeout: int) -> _InferenceResponse
 
 
 def extract_json(raw: str):
-    """Extract JSON from Claude response, stripping markdown fences and preamble.
-    Handles truncated JSON by salvaging complete objects from the array."""
+    """Extract JSON from a model response, stripping markdown fences and preamble.
+
+    Handles three local-model misbehaviours on top of the happy path:
+    1. Markdown fences — ```json ... ```
+    2. Preamble/prose before the array (tries each `[`/`{` as a start)
+    3. Truncation — salvages complete objects from a cut-off array
+    """
     raw = raw.strip()
-    # Strip markdown code fences
     match = re.search(r"```(?:json)?\s*\n?(.*?)```", raw, re.DOTALL)
     if match:
         raw = match.group(1).strip()
-    # Find first [ or { and try to parse
+    last_error: Exception | None = None
     for i, ch in enumerate(raw):
         if ch in ("[", "{"):
             try:
                 return json.loads(raw[i:])
-            except json.JSONDecodeError:
-                # If it's a truncated array, try to salvage complete objects
+            except json.JSONDecodeError as exc:
+                last_error = exc
                 if ch == "[":
-                    return _salvage_truncated_array(raw[i:])
+                    try:
+                        return _salvage_truncated_array(raw[i:])
+                    except json.JSONDecodeError:
+                        pass
                 continue
+    if last_error is not None:
+        raise last_error
     return json.loads(raw)
+
+
+class JSONRetryFailed(Exception):
+    """Raised when both the initial call and the strict-retry call
+    failed to parse. Carries the last raw text so agents can fall
+    back to prose-narrative findings without losing the model output."""
+
+    def __init__(self, last_raw: str, original: Exception):
+        super().__init__(f"JSON parse failed after retry: {original}")
+        self.last_raw = last_raw
+        self.original = original
+
+
+def _dump_raw_response(tag: str | None, raw: str, attempt: int) -> None:
+    if not tag:
+        return
+    debug_dir = os.getenv("VENDOR_AGENT_DEBUG_DIR")
+    if not debug_dir:
+        return
+    try:
+        dest = Path(debug_dir) / f"{tag}_raw_attempt{attempt}.txt"
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(raw, encoding="utf-8")
+    except OSError:
+        pass
+
+
+def invoke_chat_model_json(
+    *,
+    model: str,
+    system: str,
+    user_prompt: str,
+    max_tokens: int,
+    debug_tag: str | None = None,
+) -> tuple[list | dict, str]:
+    """Call the chat model and return (parsed_json, raw_text).
+
+    Retries once with a stricter instruction when the first response
+    can't be parsed as JSON. Local models (nemotron-nano-8b and
+    similar) routinely add markdown preamble even when told not to;
+    the retry message cites their own output back to them, which
+    tends to produce a clean array on the second try.
+
+    Raises JSONRetryFailed if both attempts fail to parse.
+    """
+    raw = invoke_chat_model(model=model, system=system, user_prompt=user_prompt, max_tokens=max_tokens)
+    _dump_raw_response(debug_tag, raw, attempt=1)
+    try:
+        return extract_json(raw), raw
+    except Exception:
+        pass
+    retry_prompt = (
+        f"{user_prompt}\n\n"
+        "Your previous response was prose instead of JSON. Below is what you returned:\n\n"
+        "--- BEGIN PREVIOUS RESPONSE ---\n"
+        f"{raw}\n"
+        "--- END PREVIOUS RESPONSE ---\n\n"
+        "Convert every gap, concern, observation, and compliant point from that "
+        "response into a JSON array. Each distinct finding becomes one object with "
+        "EXACTLY these seven fields — do not invent other fields:\n"
+        '  "framework": string (e.g. "ISO 27001", "NIS2", "DORA", "BIO2", "EU AI Act")\n'
+        '  "control_id": string (e.g. "A.9.1", "Art.21", "BIO2-CRYPTO-01")\n'
+        '  "control_name": string — short name of the control\n'
+        '  "status": one of "Compliant", "Gap", "Partial", "Not Applicable"\n'
+        '  "severity": one of "Critical", "High", "Medium", "Low", "Info"\n'
+        '  "evidence": string — what the documents said (or "No evidence provided.")\n'
+        '  "recommendation": string — concrete action the vendor should take\n\n'
+        "Do not drop information — every concern or gap in the previous response "
+        "must become one object. Map strengths/compliant items to status=\"Compliant\", "
+        "severity=\"Info\". Map gaps/risks/concerns to status=\"Gap\" or \"Partial\" "
+        "with appropriate severity.\n\n"
+        "Output ONLY the JSON array, starting with `[` and ending with `]`. "
+        "No markdown fences, no preamble, no explanation. Do NOT return an empty array."
+    )
+    raw2 = invoke_chat_model(model=model, system=system, user_prompt=retry_prompt, max_tokens=max_tokens)
+    _dump_raw_response(debug_tag, raw2, attempt=2)
+    try:
+        return extract_json(raw2), raw2
+    except Exception as exc:
+        raise JSONRetryFailed(last_raw=raw2, original=exc) from exc
 
 
 def _salvage_truncated_array(raw: str) -> list:
