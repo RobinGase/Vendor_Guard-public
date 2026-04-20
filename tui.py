@@ -527,6 +527,38 @@ def _cmd_audit_shell(session: Session) -> None:
     _render_artefact_summary(session)
 
 
+_DISPATCH_STATUS_AGENT_RE = re.compile(
+    r"^\s+(security|resilience|gov_baseline|ai_trust)\s*:"
+)
+
+
+def _dispatch_status_for_line(line: str) -> str | None:
+    """Map a dispatcher/main.py stdout line to a spinner caption.
+
+    Returns None when the line carries no stage transition and the
+    caption should stay as-is. Captions use present-continuous ("…ing")
+    so the spinner reads as an active state rather than a completed
+    one. We match on the exact prose printed by main.py + the dispatch
+    script — keep these in sync if those print statements change.
+    """
+    if line.startswith("dispatch: session "):
+        return "[cyan]staging files on fedora…[/cyan]"
+    if line.startswith("dispatch: remote "):
+        return "[cyan]cooking on qwen3.5:9b (via privacy router)…[/cyan]"
+    if "Extracting vendor profile" in line:
+        return "[cyan]profiling vendor…[/cyan]"
+    if line.startswith("Running agents:"):
+        return "[cyan]running framework agents…[/cyan]"
+    m = _DISPATCH_STATUS_AGENT_RE.match(line)
+    if m:
+        return f"[cyan]{m.group(1)} agent finished — next up…[/cyan]"
+    if "Writing outputs" in line:
+        return "[cyan]writing artefacts…[/cyan]"
+    if line.startswith("dispatch:") and "artefacts in" in line:
+        return "[cyan]retrieving artefacts…[/cyan]"
+    return None
+
+
 def _cmd_audit_dispatch(session: Session) -> bool:
     """Hand the audit to an external dispatcher.
 
@@ -582,8 +614,21 @@ def _cmd_audit_dispatch(session: Session) -> bool:
 
     session.output_dir.mkdir(parents=True, exist_ok=True)
 
+    # Stream the dispatcher's stdout line-by-line so the operator gets
+    # live feedback instead of staring at a silent terminal for the
+    # 3-10 minute remote run. A rich Status spinner under the log
+    # rolls its caption forward as we spot known markers from the
+    # dispatch script + remote main.py output. Unknown lines still
+    # print, the spinner just doesn't change caption for them.
+    returncode: int | None = None
     try:
-        proc = subprocess.run(argv, check=False)
+        proc = subprocess.Popen(
+            argv,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+        )
     except FileNotFoundError:
         session.console.print(f"[red]dispatcher not found:[/red] {dispatcher}")
         return False
@@ -591,9 +636,23 @@ def _cmd_audit_dispatch(session: Session) -> bool:
         session.console.print(f"[red]dispatcher crashed:[/red] {exc}")
         return False
 
-    if proc.returncode != 0:
+    with session.console.status(
+        "[cyan]starting dispatcher…[/cyan]", spinner="dots"
+    ) as status:
+        assert proc.stdout is not None
+        for raw in proc.stdout:
+            line = raw.rstrip()
+            if not line:
+                continue
+            session.console.print(f"  [dim]{line}[/dim]")
+            new_caption = _dispatch_status_for_line(line)
+            if new_caption:
+                status.update(new_caption)
+        returncode = proc.wait()
+
+    if returncode != 0:
         session.console.print(
-            f"[red]dispatcher exited with code {proc.returncode}.[/red] "
+            f"[red]dispatcher exited with code {returncode}.[/red] "
             "No artefacts retrieved."
         )
         return False
