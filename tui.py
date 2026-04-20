@@ -26,6 +26,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -60,18 +61,44 @@ _QUEUEABLE_EXTS = {".pdf", ".docx", ".xlsx", ".txt"}
 # are the only document-derived content that flows here. The system
 # prompt restates this so the model can answer "what can you see?"
 # correctly when the auditor asks.
-CHAT_SYSTEM_PROMPT = """You are the Vendor Guard chat assistant. The user is an internal/IT auditor reviewing a vendor packet against EU/NL frameworks (ISO 27001, NIS2, DORA, BIO2, EU AI Act, ALTAI, EC Ethics).
-
-Trust boundary you must respect and explain when asked:
+_CHAT_TRUST_RULES = """Trust boundary you must respect and explain when asked:
 - You DO see: queued filenames + sizes (metadata only), the audit summary, and the contents of artefacts under output/ (scorecard, gap register, audit memo). These artefacts have already passed the saaf-shell's NeMo guardrails and Presidio PII redaction.
 - You DO NOT see: the raw vendor documents. Their text never enters this chat. All substantive analysis happens inside the saaf-shell's Firecracker VM with the local model. Your job is to help the auditor interpret the guardrailed outputs, not re-run the audit.
 
 How to behave:
 - Be concise. Bullets over prose.
-- If asked about something only present in raw docs, say so and tell the user to run /audit (it is by design — you're the helper, not the auditor).
+- If asked about something only present in raw docs, trigger <action name="audit"/> rather than refusing — the action runs the audit pipeline, which is how the content becomes available.
 - Cite framework article numbers only if you're certain they exist; otherwise refer to the artefact.
-- Never issue a vendor-wide pass/fail; that's for the human reading the gap register.
-"""
+- Never issue a vendor-wide pass/fail; that's for the human reading the gap register."""
+
+CHAT_SYSTEM_PROMPT = f"""You are the Vendor Guard chat assistant. The user is an internal/IT auditor (often non-technical) reviewing a vendor packet against EU/NL frameworks (ISO 27001, NIS2, DORA, BIO2, EU AI Act, ALTAI, EC Ethics).
+
+{_CHAT_TRUST_RULES}
+
+Actions you can trigger:
+When the user expresses intent to perform an operation, emit ONE action tag at the very start of your reply, on its own line, then a one-sentence confirmation of what you're doing. The TUI will execute the action and come back to you for reasoning.
+
+Supported tags (use exactly this grammar):
+  <action name="audit"/>              — run the audit pipeline on the currently queued files
+  <action name="clear"/>               — clear the file queue
+  <action name="show"/>                — print the artefact summary panel
+  <action name="open" file="NAME"/>    — open a named artefact (e.g. scorecard.csv, gap_register.xlsx, audit_memo.html)
+
+Rules for actions:
+- At most ONE tag per reply. Never fabricate filenames — only use files visible in the context.
+- If no action is warranted, do not emit a tag; just answer.
+- If the user dropped files and asks you to audit+reason, emit <action name="audit"/> — after it finishes, the TUI will ask you to reason about the output."""
+
+_CHAT_SYSTEM_PROMPT_REASONING = f"""You are the Vendor Guard chat assistant, now in reasoning mode after an action just completed.
+
+{_CHAT_TRUST_RULES}
+
+Do NOT emit any <action .../> tag in this turn. Focus on interpreting the artefacts the user can now see."""
+
+_ACTION_RE = re.compile(
+    r'<action\s+name="(?P<name>[a-z_-]+)"(?:\s+file="(?P<file>[^"]+)")?\s*/?>',
+    re.IGNORECASE,
+)
 
 CHAT_MODEL = "claude-opus-4-6"
 CHAT_BACKEND = os.environ.get("VENDOR_GUARD_CHAT_BACKEND", "claude-code").lower()
@@ -136,13 +163,38 @@ def _strip_drop_quoting(token: str) -> str:
     return token
 
 
+_DRIVE_RE = re.compile(r"^[A-Za-z]:[\\/]")
+
+
+def _looks_like_path(raw_token: str, stripped: str) -> bool:
+    """Heuristic: only treat a token as a path candidate when it
+    visibly looks like one. Prevents bare words ("audit", "output",
+    "this") from matching relative paths that happen to exist in the
+    current working directory."""
+    if raw_token.startswith(('"', "'")):
+        return True
+    if "/" in stripped or "\\" in stripped:
+        return True
+    if stripped.startswith("~"):
+        return True
+    if _DRIVE_RE.match(stripped):
+        return True
+    if "." in stripped:
+        suffix = Path(stripped).suffix.lower()
+        if suffix in _QUEUEABLE_EXTS:
+            return True
+    return False
+
+
 def _parse_paths_from_input(raw: str) -> list[Path]:
     """Return the subset of input tokens that resolve to existing files.
 
-    A user turn like ``audit this /home/r/report.pdf`` becomes one
-    path + conversational text. We split with shlex so a drag-drop
-    of a path-with-spaces still parses as one token, then any token
-    that resolves to an existing file becomes a queue candidate.
+    Splits with shlex so drag-dropped paths with spaces parse as one
+    token, then filters to tokens that *look* like paths (contain a
+    separator, drive letter, tilde, or queueable extension) before
+    checking the filesystem. A bare word that coincidentally matches
+    a file in CWD is NOT treated as a path — that would mis-queue
+    natural-language tokens.
     """
     try:
         tokens = shlex.split(raw, posix=(os.name != "nt"))
@@ -150,7 +202,10 @@ def _parse_paths_from_input(raw: str) -> list[Path]:
         tokens = raw.split()
     out: list[Path] = []
     for token in tokens:
-        candidate = Path(_strip_drop_quoting(token)).expanduser()
+        stripped = _strip_drop_quoting(token)
+        if not _looks_like_path(token, stripped):
+            continue
+        candidate = Path(stripped).expanduser()
         if candidate.exists() and (candidate.is_file() or candidate.is_dir()):
             out.append(candidate.resolve())
     return out
@@ -376,6 +431,92 @@ def _cmd_audit_shell(session: Session) -> None:
     _render_artefact_summary(session)
 
 
+def _cmd_audit_dispatch(session: Session) -> bool:
+    """Hand the audit to an external dispatcher.
+
+    When the TUI runs on a host where saaf-shell cannot execute
+    locally (Windows, macOS, a Linux laptop without Firecracker),
+    the operator can export ``VENDOR_GUARD_AUDIT_DISPATCH`` pointing
+    at an executable that knows how to run the shell path somewhere
+    else (a remote Linux host, a container, a CI job). The TUI does
+    not care how — it only enforces:
+
+    - the queued files are passed as CLI args exactly once
+    - the child's exit code decides success/failure
+    - artefacts must land in ``session.output_dir`` for the post-run
+      dashboard to render
+
+    The dispatcher is passed as argv:
+
+        <VENDOR_GUARD_AUDIT_DISPATCH> \\
+            --questionnaire <first queued file> \\
+            --doc <second> [--doc <third> ...] \\
+            --output-dir <session output dir>
+
+    Everything host / network / credential specific lives in the
+    dispatcher, outside the public vendor_guard tree. Personal
+    multi-device glue belongs in a private dev repo; this hook is
+    the contract between the two.
+    """
+    if not session.queued_files:
+        session.console.print("[yellow]no files queued.[/yellow] Drag a vendor packet in first, or run /load-sample.")
+        return False
+
+    dispatcher = os.environ["VENDOR_GUARD_AUDIT_DISPATCH"]
+    questionnaire = session.queued_files[0]
+    docs = session.queued_files[1:]
+
+    session.console.print()
+    session.console.print(Rule("[bold]Audit via dispatcher[/bold]", style="magenta"))
+    session.console.print(f"  [dim]dispatcher:[/dim]    {dispatcher}")
+    session.console.print(f"  [dim]questionnaire:[/dim] {questionnaire}")
+    for doc in docs:
+        session.console.print(f"  [dim]doc:[/dim]          {doc}")
+    session.console.print(f"  [dim]output:[/dim]        {session.output_dir}")
+    session.console.print()
+
+    argv: list[str] = [
+        dispatcher,
+        "--questionnaire", str(questionnaire),
+        "--output-dir", str(session.output_dir),
+    ]
+    for doc in docs:
+        argv.extend(["--doc", str(doc)])
+
+    session.output_dir.mkdir(parents=True, exist_ok=True)
+
+    try:
+        proc = subprocess.run(argv, check=False)
+    except FileNotFoundError:
+        session.console.print(f"[red]dispatcher not found:[/red] {dispatcher}")
+        return False
+    except Exception as exc:
+        session.console.print(f"[red]dispatcher crashed:[/red] {exc}")
+        return False
+
+    if proc.returncode != 0:
+        session.console.print(
+            f"[red]dispatcher exited with code {proc.returncode}.[/red] "
+            "No artefacts retrieved."
+        )
+        return False
+
+    session.console.print(
+        Panel(
+            f"Dispatcher completed. Artefacts in {session.output_dir}.",
+            title="[green]/audit (dispatched) complete[/green]",
+            border_style="green",
+        )
+    )
+    session.last_audit_summary = (
+        f"Audit dispatched via {dispatcher}. "
+        f"Questionnaire: {questionnaire.name}. Docs: {[d.name for d in docs]}. "
+        f"Artefacts retrieved to {session.output_dir}."
+    )
+    _render_artefact_summary(session)
+    return True
+
+
 def _cmd_audit(session: Session) -> None:
     """Run main.run_pipeline against the queued files.
 
@@ -555,7 +696,7 @@ def _render_gaps(session: Session, top_n: int = 5) -> None:
     session.console.print(table)
 
 
-def _render_memo_excerpt(session: Session, chars: int = 800) -> None:
+def _render_memo_excerpt(session: Session, chars: int = 2000) -> None:
     """Render the first ~chars of the audit memo (HTML preferred, stripped)."""
     import re as _re
 
@@ -770,6 +911,40 @@ def _dispatch_chat(system: str, user_prompt: str) -> tuple[str, str]:
     return "anthropic-api", _chat_via_anthropic(system, user_prompt)
 
 
+def _execute_action(session: Session, name: str, file: str | None) -> tuple[bool, str]:
+    """Run an intent-dispatched action. Returns (ok, status_msg).
+
+    The set here mirrors a subset of slash-commands — intentionally
+    small so Claude cannot take surprising actions. Expand deliberately.
+    """
+    name = name.lower()
+    if name == "audit":
+        if not session.queued_files:
+            return False, "no files queued — drop a vendor packet first"
+        if sys.platform == "linux":
+            _cmd_audit_shell(session)
+            return True, "audit (shell) completed"
+        if os.environ.get("VENDOR_GUARD_AUDIT_DISPATCH"):
+            ok = _cmd_audit_dispatch(session)
+            if ok:
+                return True, "audit (dispatched) completed"
+            return False, "dispatcher failed — see errors above"
+        return False, "/audit requires Linux + saaf-shell or VENDOR_GUARD_AUDIT_DISPATCH"
+    if name == "clear":
+        session.queued_files.clear()
+        session.console.print("[yellow]file queue cleared.[/yellow]")
+        return True, "queue cleared"
+    if name == "show":
+        _render_artefact_summary(session)
+        return True, "artefacts listed"
+    if name == "open":
+        if not file:
+            return False, "open action missing file="
+        _cmd_open(session, file)
+        return True, f"opened {file}"
+    return False, f"unknown action: {name}"
+
+
 def _cmd_chat(session: Session, user_text: str) -> None:
     """Send the user's line to the configured chat backend.
 
@@ -777,6 +952,11 @@ def _cmd_chat(session: Session, user_text: str) -> None:
     enforces the trust boundary (no raw vendor-doc text). The chat
     backend therefore can only ever see file metadata + sanitized
     output/* contents.
+
+    Intent layer: if the reply contains a single <action .../> tag,
+    execute the action, then do a second reasoning-only turn over the
+    post-action state. Action grammar is pinned; Claude cannot invent
+    filenames or chain actions.
     """
     session.chat_history.append(("user", user_text))
 
@@ -792,17 +972,64 @@ def _cmd_chat(session: Session, user_text: str) -> None:
         session.console.print(f"[red]chat error:[/red] {exc}")
         return
 
+    action_match = _ACTION_RE.search(reply)
+    visible_reply = _ACTION_RE.sub("", reply).strip() if action_match else reply
+
     session.chat_history.append(("assistant", reply))
     session.console.print()
     session.console.print(f"[dim]{TRUST_BANNER} • via {backend_used}[/dim]")
-    session.console.print(
-        Panel(Markdown(reply), title="[cyan]assistant[/cyan]", border_style="cyan")
+    if visible_reply:
+        session.console.print(
+            Panel(Markdown(visible_reply), title="[cyan]assistant[/cyan]", border_style="cyan")
+        )
+
+    if not action_match:
+        return
+
+    name = action_match.group("name")
+    file = action_match.group("file")
+    session.console.print()
+    session.console.print(Rule(f"[magenta]action: {name}[/magenta]", style="magenta"))
+    ok, status = _execute_action(session, name, file)
+    if not ok:
+        session.console.print(f"[red]action failed:[/red] {status}")
+        return
+
+    followup_context = _build_chat_context(session)
+    followup_prompt = (
+        f"{followup_context}\n\n"
+        f"User originally asked: {user_text}\n\n"
+        f"The '{name}' action just completed ({status}). "
+        "Answer the user's question using the artefacts above. Be concise."
     )
+    try:
+        with session.console.status("[dim]reasoning over results…[/dim]", spinner="dots"):
+            backend_used2, reply2 = _dispatch_chat(_CHAT_SYSTEM_PROMPT_REASONING, followup_prompt)
+    except Exception as exc:
+        session.console.print(f"[red]follow-up chat error:[/red] {exc}")
+        return
+
+    session.chat_history.append(("assistant", reply2))
+    session.console.print()
+    session.console.print(f"[dim]{TRUST_BANNER} • via {backend_used2}[/dim]")
+    session.console.print(
+        Panel(Markdown(reply2), title="[cyan]assistant (post-action)[/cyan]", border_style="cyan")
+    )
+
+
+# Box-drawing chars that leak in when auditors copy-paste bullets out of a
+# rich panel. Strip leading/trailing runs so `│  1 DORA Art. 19 …  │` reads
+# cleanly as `1 DORA Art. 19 …`.
+_PANEL_CHARS = "│─┃━╭╮╰╯┌┐└┘├┤┬┴┼┏┓┗┛┳┻┣┫╋╔╗╚╝║═╠╣╦╩╬"
+
+
+def _strip_panel_borders(line: str) -> str:
+    return line.strip().strip(_PANEL_CHARS + " \t").strip()
 
 
 def _dispatch(session: Session, line: str) -> bool:
     """Return False when the user wants to leave."""
-    line = line.strip()
+    line = _strip_panel_borders(line)
     if not line:
         return True
 
@@ -851,14 +1078,20 @@ def _dispatch(session: Session, line: str) -> bool:
         if cmd == "audit":
             if sys.platform == "linux":
                 _cmd_audit_shell(session)
+            elif os.environ.get("VENDOR_GUARD_AUDIT_DISPATCH"):
+                _cmd_audit_dispatch(session)
             else:
                 session.console.print(
-                    "[yellow]/audit defaults to the saaf-shell (Firecracker) path on Linux.[/yellow]"
+                    "[yellow]/audit requires Linux + saaf-shell or a configured dispatch hook.[/yellow]"
                 )
                 session.console.print(
-                    "[dim]this host is not Linux — falling back to /audit-direct (in-process).[/dim]"
+                    "[dim]this host is not Linux and VENDOR_GUARD_AUDIT_DISPATCH is not set.[/dim]"
                 )
-                _cmd_audit(session)
+                session.console.print()
+                session.console.print("Options:")
+                session.console.print("  • run the TUI on a Linux host that has saaf-shell installed")
+                session.console.print("  • set VENDOR_GUARD_AUDIT_DISPATCH to an executable that runs the shell path remotely")
+                session.console.print("  • use [cyan]/audit-direct[/cyan] to run in-process on this host (ANTHROPIC_API_KEY, bypasses saaf-shell)")
             return True
         if cmd in {"audit-direct", "audit-inproc", "audit-host"}:
             _cmd_audit(session)
@@ -901,7 +1134,7 @@ def _dispatch(session: Session, line: str) -> bool:
     return True
 
 
-def run(empty: bool = False) -> None:
+def run(with_sample: bool = False) -> None:
     console = Console()
     _render_header(console)
     console.print(
@@ -910,7 +1143,7 @@ def run(empty: bool = False) -> None:
     )
 
     session = Session(console=console)
-    if not empty and DEFAULT_QUESTIONNAIRE.exists():
+    if with_sample and DEFAULT_QUESTIONNAIRE.exists():
         session.queued_files = [DEFAULT_QUESTIONNAIRE, *DEFAULT_DOCS]
         console.print()
         console.print("[dim]Preloaded sample packet:[/dim]")
@@ -930,10 +1163,13 @@ def run(empty: bool = False) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Vendor Guard interactive TUI")
-    parser.add_argument("--empty", action="store_true", help="Start with no files queued")
+    parser.add_argument("--with-sample", action="store_true",
+                        help="Preload the built-in sample vendor packet (equivalent to /load-sample).")
+    # --empty kept as a tolerated no-op since the default is now empty.
+    parser.add_argument("--empty", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
     try:
-        run(empty=args.empty)
+        run(with_sample=args.with_sample)
     except Exception:
         traceback.print_exc()
         sys.exit(1)
