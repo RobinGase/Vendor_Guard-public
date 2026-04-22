@@ -5,9 +5,11 @@ __pycache__/
 .venv/
 .env
 
-# Demo / debug run artefacts (variants of output/ and reasoning/ from
-# multi-device or verification runs). The canonical output/ directory
-# stays tracked; these are scratch copies.
+# Generated run artefacts. output/ is the canonical dump location;
+# output_*/ and reasoning*/ are variants from multi-device and
+# verification runs. None of them are fixtures — they're produced by
+# the pipeline on every run.
+output/
 output_*/
 reasoning/
 reasoning_*/
