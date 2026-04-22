@@ -4,3 +4,10 @@ __pycache__/
 .coverage
 .venv/
 .env
+
+# Demo / debug run artefacts (variants of output/ and reasoning/ from
+# multi-device or verification runs). The canonical output/ directory
+# stays tracked; these are scratch copies.
+output_*/
+reasoning/
+reasoning_*/
