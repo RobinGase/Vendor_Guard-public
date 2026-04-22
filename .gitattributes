@@ -1,0 +1,20 @@
+# Normalize line endings to LF in the repository, regardless of the
+# checking-out OS or Git's autocrlf setting. This keeps diffs stable
+# across Windows/macOS/Linux contributors and prevents review noise
+# when Windows-side edits re-land in the repo.
+* text=auto eol=lf
+
+# Explicit binary handling — never LF-convert these.
+*.pdf    binary
+*.docx   binary
+*.xlsx   binary
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.ico    binary
+
+# Shell scripts + Python must be LF (otherwise the guest VM and
+# shebang interpreters misbehave).
+*.sh     text eol=lf
+*.py     text eol=lf
