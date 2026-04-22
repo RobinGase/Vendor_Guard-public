@@ -85,7 +85,10 @@ def test_invoke_chat_model_retries_transient_inference_timeout(monkeypatch):
     assert result == json.dumps({"ok": True})
 
 
-def test_invoke_chat_model_uses_short_connect_timeout_for_shell_calls(monkeypatch):
+def test_invoke_chat_model_passes_timeout_to_post(monkeypatch):
+    """base._post_inference should receive the 600s timeout configured
+    in invoke_chat_model's shell-path branch. If this value changes,
+    update here and in the agent prose-fallback expectations."""
     monkeypatch.setenv("INFERENCE_URL", "http://127.0.0.1:8088/v1/chat/completions")
 
     class FakeResponse:
@@ -105,7 +108,7 @@ def test_invoke_chat_model_uses_short_connect_timeout_for_shell_calls(monkeypatc
 
     invoke_chat_model(model="claude-sonnet-4-6", system=None, user_prompt="hello", max_tokens=128)
 
-    assert captured["timeout"] == 120
+    assert captured["timeout"] == 600
 
 
 def test_invoke_chat_model_json_retries_once_on_parse_failure(mocker):
@@ -118,7 +121,9 @@ def test_invoke_chat_model_json_retries_once_on_parse_failure(mocker):
         calls["count"] += 1
         if calls["count"] == 1:
             return "Sure, here is the assessment:\n\nThis vendor has gaps."
-        assert "not valid JSON" in user_prompt
+        # The retry prompt quotes the previous prose response back and
+        # asks for a JSON array. Match a stable phrase from that prompt.
+        assert "previous response was prose instead of JSON" in user_prompt
         return json.dumps([{"framework": "ISO 27001", "control_id": "A.5.1"}])
 
     mocker.patch("agents.base.invoke_chat_model", side_effect=fake)

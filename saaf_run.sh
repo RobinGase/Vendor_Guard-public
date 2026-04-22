@@ -17,15 +17,12 @@ printf '%s\n' "wrapper_venv_extracted" >> /audit_workspace/saaf_wrapper.log
 cd /tmp/vendor_guard_runtime
 printf '%s\n' "wrapper_python_exec" >> /audit_workspace/saaf_wrapper.log
 
-# TUI writes queued.env with VENDOR_QUESTIONNAIRE / VENDOR_DOCS pointing at
-# files it staged under /audit_workspace/vendor_guard/queued/. Sourcing here
-# keeps the manifest stable — per-run inputs flow through the dropfile.
-if [ -f /audit_workspace/queued.env ]; then
-  printf '%s\n' "wrapper_sourcing_queued_env" >> /audit_workspace/saaf_wrapper.log
-  set -a
-  . /audit_workspace/queued.env
-  set +a
-fi
+# queued.env is parsed by saaf_entrypoint.py (safe KEY=VALUE parser).
+# We deliberately do NOT `. queued.env` here: sourcing via `.` executes
+# the file as shell, so a crafted value like VAR="$(cmd)" would run
+# commands inside the VM at workload UID. The Python parser accepts
+# plain KEY=VALUE pairs only, with an allowlist of keys.
+export SAAF_QUEUED_ENV=/audit_workspace/queued.env
 
 PYTHONPATH="/tmp/vendor_guard_runtime:/tmp/vendor-guard-venv/lib/python3.12/site-packages${PYTHONPATH:+:$PYTHONPATH}" \
   exec /usr/bin/python3.12 /tmp/vendor_guard_runtime/saaf_entrypoint.py >> /audit_workspace/saaf_entrypoint.stdout 2>> /audit_workspace/saaf_entrypoint.stderr

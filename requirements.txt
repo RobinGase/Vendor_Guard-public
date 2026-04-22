@@ -1,9 +1,23 @@
-anthropic>=0.40.0
-pydantic>=2.0.0
-pypdf>=4.0.0
-python-docx>=1.1.0
-openpyxl>=3.1.0
-pytest>=8.0.0
-pytest-mock>=3.12.0
-rich>=13.7.0
+# Exact version pins. CVE bumps flow through pip-audit CI; update both
+# the pin and (on Path A) the saaf-compliance-shell lockfile together.
+anthropic==0.92.0
+pydantic==2.13.3
+# pypdf < 6.10.2 has multiple parser CVEs (CVE-2026-33123/33699/40260 +
+# GHSA-jj6c-8h6c-hppx / 4pxv-j86v-mhcw / 7gw9-cf7v-778f / x284-j5p8-9c5p).
+# pypdf parses untrusted vendor PDFs so this is high-risk; keep at or above 6.10.2.
+pypdf==6.10.2
+python-docx==1.2.0
+openpyxl==3.1.5
+# pytest < 9.0.3 has CVE-2025-71176 (test-time only, low impact in prod
+# but flagged by pip-audit CI).
+pytest==9.0.3
+pytest-mock==3.15.1
+rich==13.7.1
+# Chat backend for the TUI (optional — falls back to Anthropic SDK when
+# the SDK or claude CLI is missing). Left at >= because the SDK is
+# early-stage and revs fast; a strict pin would bitrot quickly.
 claude-agent-sdk>=0.0.10
+# Transitive through claude-agent-sdk. Older versions carry
+# CVE-2025-53365/53366/66416. Floor-pinned directly so pip's resolver
+# picks a patched version even if the SDK's own constraint is looser.
+mcp>=1.23.0

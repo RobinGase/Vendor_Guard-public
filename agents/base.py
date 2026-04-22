@@ -3,11 +3,52 @@ import os
 import re
 import socket
 import time
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
 
 PROMPTS_DIR = Path(__file__).parent.parent / "prompts"
+
+# Allowed schemes for INFERENCE_URL. urllib.request.urlopen will otherwise
+# honor file:// (information disclosure) and unusual protocols.
+_ALLOWED_INFERENCE_SCHEMES = frozenset({"http", "https"})
+
+# Optional host allowlist for Path A. When set (colon- or comma-separated
+# list of hostnames/IPs), INFERENCE_URL must resolve to one of them.
+# The default manifest points at 172.16.0.1 (the Firecracker gateway);
+# operators who relax that should set SAAF_INFERENCE_HOST_ALLOWLIST
+# explicitly so the deviation is visible in the audit log / config.
+_DEFAULT_HOST_ALLOWLIST = "172.16.0.1,127.0.0.1,localhost"
+
+
+def _validate_inference_url(url: str) -> None:
+    """Raise ValueError if the URL looks unsafe.
+
+    Checks scheme (http/https only) and hostname (against an allowlist
+    derived from SAAF_INFERENCE_HOST_ALLOWLIST, defaulting to the
+    expected Firecracker gateway + loopback). Fails closed — malformed
+    URLs are rejected rather than passed to urlopen.
+    """
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme not in _ALLOWED_INFERENCE_SCHEMES:
+        raise ValueError(
+            f"INFERENCE_URL scheme {parsed.scheme!r} is not allowed; "
+            f"expected one of {sorted(_ALLOWED_INFERENCE_SCHEMES)}"
+        )
+    if not parsed.hostname:
+        raise ValueError(f"INFERENCE_URL has no hostname: {url!r}")
+    allowlist = os.getenv("SAAF_INFERENCE_HOST_ALLOWLIST", _DEFAULT_HOST_ALLOWLIST)
+    # Hostnames/IPs only — no ports. urlparse already strips the port from
+    # parsed.hostname, so comparing bare hostnames is correct. Don't try to
+    # be clever about `:` → `,`; that silently broke `host:port` entries.
+    allowed_hosts = {h.strip() for h in allowlist.split(",") if h.strip()}
+    if parsed.hostname not in allowed_hosts:
+        raise ValueError(
+            f"INFERENCE_URL host {parsed.hostname!r} is not in the "
+            f"allowlist ({sorted(allowed_hosts)}). Set "
+            "SAAF_INFERENCE_HOST_ALLOWLIST to override."
+        )
 
 
 def load_prompt(name: str) -> str:
@@ -27,6 +68,7 @@ def require_anthropic_api_key() -> str:
 def invoke_chat_model(*, model: str, system: str | None = None, user_prompt: str, max_tokens: int) -> str:
     inference_url = os.getenv("INFERENCE_URL")
     if inference_url:
+        _validate_inference_url(inference_url)
         payload = {
             "model": os.getenv("SAAF_MODEL", "Randomblock1/nemotron-nano:8b"),
             "messages": [],

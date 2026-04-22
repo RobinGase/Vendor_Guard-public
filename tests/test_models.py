@@ -1,3 +1,6 @@
+import pytest
+from pydantic import ValidationError
+
 from models.finding import Finding, VendorProfile
 
 
@@ -97,3 +100,70 @@ def test_vendor_profile_ai_vendor():
         applicable_frameworks=["EU AI Act", "ALTAI", "EC Ethics", "ISO 27001"],
     )
     assert p.is_ai_system is True
+
+
+@pytest.mark.parametrize("trigger", ["=", "+", "-", "@", "\t", "\r"])
+def test_finding_rejects_formula_trigger_in_evidence(trigger):
+    with pytest.raises(ValidationError, match="formula trigger"):
+        Finding(
+            framework="ISO 27001",
+            control_id="A.9.1",
+            control_name="Access control",
+            status="Gap",
+            severity="High",
+            evidence=f"{trigger}HYPERLINK(\"http://evil/\",\"click\")",
+            recommendation="Document policy.",
+        )
+
+
+@pytest.mark.parametrize("trigger", ["=", "+", "-", "@", "\t", "\r"])
+def test_finding_rejects_formula_trigger_in_recommendation(trigger):
+    with pytest.raises(ValidationError, match="formula trigger"):
+        Finding(
+            framework="ISO 27001",
+            control_id="A.9.1",
+            control_name="Access control",
+            status="Gap",
+            severity="High",
+            evidence="No policy found.",
+            recommendation=f"{trigger}CMD|'/C calc'!A1",
+        )
+
+
+def test_finding_rejects_oversized_evidence():
+    with pytest.raises(ValidationError):
+        Finding(
+            framework="ISO 27001",
+            control_id="A.9.1",
+            control_name="Access control",
+            status="Gap",
+            severity="High",
+            evidence="x" * 10001,
+            recommendation="y",
+        )
+
+
+def test_vendor_profile_rejects_oversized_name():
+    with pytest.raises(ValidationError):
+        VendorProfile(
+            name="A" * 201,
+            sector="Finance",
+            services=["x"],
+            processes_personal_data=False,
+            is_ai_system=False,
+            is_dutch_government_vendor=False,
+            applicable_frameworks=["ISO 27001"],
+        )
+
+
+def test_vendor_profile_rejects_oversized_services_list():
+    with pytest.raises(ValidationError):
+        VendorProfile(
+            name="Acme",
+            sector="Finance",
+            services=[f"service_{i}" for i in range(21)],
+            processes_personal_data=False,
+            is_ai_system=False,
+            is_dutch_government_vendor=False,
+            applicable_frameworks=["ISO 27001"],
+        )

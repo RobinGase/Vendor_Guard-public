@@ -9,6 +9,28 @@ import html
 from pathlib import Path
 from models.finding import Finding, VendorProfile
 
+# Characters Excel / Google Sheets / LibreOffice Calc treat as the start
+# of a formula. A vendor-controlled string that reaches a cell can trigger
+# HYPERLINK exfil, WEBSERVICE exfil, or (with DDE enabled) command
+# execution. Prepending a single quote makes the cell render verbatim.
+# See https://owasp.org/www-community/attacks/CSV_Injection
+_FORMULA_TRIGGERS = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _sanitize_cell(value) -> str:
+    """Neutralize leading formula triggers in spreadsheet cell values.
+
+    Idempotent: a value already prefixed with `'` is left alone so repeated
+    writes don't stack prefixes.
+    """
+    if value is None:
+        return ""
+    s = str(value)
+    if s and s[0] in _FORMULA_TRIGGERS:
+        return "'" + s
+    return s
+
+
 RAG_COLORS = {
     "Red": "#FF6B6B",
     "Amber": "#FFD93D",
@@ -38,8 +60,8 @@ def write_scorecard_csv(scorecard: dict, output_path: Path):
         writer.writerow(["Framework", "RAG Status", "Total Controls", "Gaps", "Critical", "High", "Partial"])
         for framework, data in scorecard.items():
             writer.writerow([
-                framework,
-                data["rag"],
+                _sanitize_cell(framework),
+                _sanitize_cell(data["rag"]),
                 data.get("total", 0),
                 data.get("gaps", 0),
                 data.get("critical", 0),
@@ -55,13 +77,13 @@ def write_gap_register_csv(findings: list[Finding], output_path: Path):
         writer.writerow(["Framework", "Control ID", "Control Name", "Status", "Severity", "Evidence", "Recommendation"])
         for finding in findings:
             writer.writerow([
-                finding.framework,
-                finding.control_id,
-                finding.control_name,
-                finding.status,
-                finding.severity,
-                finding.evidence,
-                finding.recommendation,
+                _sanitize_cell(finding.framework),
+                _sanitize_cell(finding.control_id),
+                _sanitize_cell(finding.control_name),
+                _sanitize_cell(finding.status),
+                _sanitize_cell(finding.severity),
+                _sanitize_cell(finding.evidence),
+                _sanitize_cell(finding.recommendation),
             ])
 
 

@@ -1,5 +1,7 @@
 import argparse
 import concurrent.futures
+import os
+import sys
 from pathlib import Path
 
 from agents.orchestrator import build_vendor_profile, determine_frameworks
@@ -21,11 +23,45 @@ AGENT_MAP = {
 MAX_AGENT_DOC_CHARS = 8000
 
 
+def _enforce_path_b_gate() -> None:
+    """Refuse to run Path B (direct Anthropic, no shell) unless the
+    operator has explicitly acknowledged the lack of guardrails.
+
+    Path A — INFERENCE_URL is set → the pipeline is running inside the
+    saaf-shell VM, under NeMo Guardrails + Presidio + privacy router +
+    hash-chained audit log. Safe to run; gate is a no-op.
+
+    Path B — no INFERENCE_URL → the pipeline is calling Anthropic directly
+    on the host. No PII redaction, no prompt-injection rails, no audit
+    log. The README explicitly says not to run real vendor data through
+    this path. Require SAAF_ALLOW_UNGUARDED=1 so an operator can't end
+    up here by accident.
+    """
+    if os.getenv("INFERENCE_URL"):
+        return  # Path A — guardrails are in place, proceed.
+    if os.getenv("SAAF_ALLOW_UNGUARDED") == "1":
+        print(
+            "[vendor_guard] WARNING: running in Path B (cloud, no shell, "
+            "no guardrails). SAAF_ALLOW_UNGUARDED=1 acknowledged. DO NOT "
+            "run real vendor data through this path.",
+            file=sys.stderr,
+        )
+        return
+    raise RuntimeError(
+        "Refusing to run Path B (no INFERENCE_URL set). Path B bypasses "
+        "the saaf-shell's NeMo guardrails, Presidio PII masking, and "
+        "audit log. To run anyway for demo/dev, export "
+        "SAAF_ALLOW_UNGUARDED=1. For a compliance-grade run, start the "
+        "saaf-shell and set INFERENCE_URL to the gateway."
+    )
+
+
 def run_pipeline(
     questionnaire_path: Path,
     doc_paths: list[Path],
     output_dir: Path,
 ) -> dict:
+    _enforce_path_b_gate()
     output_dir.mkdir(parents=True, exist_ok=True)
 
     questionnaire_text = parse_documents([questionnaire_path])

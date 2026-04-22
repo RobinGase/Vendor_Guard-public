@@ -352,14 +352,23 @@ def _stage_queued_inputs(session: Session) -> bool:
     queued_dir = f"{workspace}/vendor_guard/queued"
     env_file = f"{workspace}/queued.env"
 
-    stale_outputs = " ".join(f"{workspace}/{f}" for f in SHELL_OUTPUT_FILES)
-    prep = _run_sudo(
-        ["sh", "-c", f"rm -rf {queued_dir} {env_file} {stale_outputs} && mkdir -p {queued_dir}"],
-        timeout=30,
-    )
+    # Prep staging dir without a shell context. Previous `sh -c` form
+    # interpolated SHELL_ROOTFS (env-var controlled) directly into a
+    # command string, so a crafted SAAF_SHELL_ROOTFS could inject
+    # commands that run via sudo. Each rm/mkdir goes through sudo's
+    # argv path instead, which bypasses shell parsing entirely and
+    # makes path values inert regardless of the characters they contain.
+    stale_paths = [f"{workspace}/{f}" for f in SHELL_OUTPUT_FILES]
+    cleanup_argv = ["rm", "-rf", "--", queued_dir, env_file, *stale_paths]
+    prep = _run_sudo(cleanup_argv, timeout=30)
     if prep.returncode != 0:
-        session.console.print("[red]failed to prep staging dir:[/red]")
+        session.console.print("[red]failed to prep staging dir (rm):[/red]")
         session.console.print(prep.stderr.decode(errors="replace")[-500:])
+        return False
+    mk = _run_sudo(["mkdir", "-p", "--", queued_dir], timeout=30)
+    if mk.returncode != 0:
+        session.console.print("[red]failed to prep staging dir (mkdir):[/red]")
+        session.console.print(mk.stderr.decode(errors="replace")[-500:])
         return False
 
     for src in session.queued_files:
@@ -377,11 +386,21 @@ def _stage_queued_inputs(session: Session) -> bool:
     # Values are double-quoted because the file is sourced by /bin/sh
     # inside the VM — unquoted semicolons in VENDOR_DOCS would be
     # parsed as command separators. Filenames come from the user's
-    # queue and are treated as trusted, but we still forbid '"' and
-    # backslash to keep the sourcing safe.
+    # Filenames from the queue flow into VENDOR_DOCS/VENDOR_QUESTIONNAIRE
+    # that saaf_run.sh parses inside the VM. Any character the shell
+    # would treat specially when reading the env file must be rejected:
+    # backslash and `$`/backtick (expansion), `"` (closes the quoted
+    # value), single quote (same problem if the quoting style changes),
+    # and newline / CR / tab (line injection — an attacker-controlled
+    # filename with \n could inject a whole extra VAR=value line).
+    _unsafe_chars = ('"', "\\", "$", "`", "'", "\n", "\r", "\t")
     for p in session.queued_files:
-        if '"' in p.name or "\\" in p.name or "$" in p.name or "`" in p.name:
-            session.console.print(f"[red]refusing to stage file with shell-unsafe name:[/red] {p.name}")
+        bad = [repr(c) for c in _unsafe_chars if c in p.name]
+        if bad:
+            session.console.print(
+                f"[red]refusing to stage file with shell-unsafe name "
+                f"(contains {', '.join(bad)}):[/red] {p.name!r}"
+            )
             return False
     env_body = (
         f'VENDOR_QUESTIONNAIRE="{guest_queued}/{questionnaire.name}"\n'

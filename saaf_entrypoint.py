@@ -1,9 +1,68 @@
 import os
 import traceback
 import importlib.metadata as importlib_metadata
+import urllib.parse
 import urllib.request
 import time
 from pathlib import Path
+
+
+# Keys we allow queued.env to set. Anything else is ignored (logged).
+# Bounds the attack surface even if a future caller drops unexpected
+# keys into the file — environment pollution via unrelated vars
+# (LD_PRELOAD, PYTHONPATH, http_proxy, ...) doesn't happen.
+_ALLOWED_QUEUED_KEYS = frozenset({
+    "VENDOR_QUESTIONNAIRE",
+    "VENDOR_DOCS",
+    "VENDOR_OUTPUT_DIR",
+})
+
+# Characters that indicate the value came from a shell-unsafe filename.
+# If any slip past the TUI-side denylist, reject the line here too —
+# defense in depth for the VM boundary.
+_FORBIDDEN_VALUE_CHARS = ("\n", "\r", "\0", "`", "$")
+
+
+def _load_queued_env(path: Path) -> None:
+    """Parse /audit_workspace/queued.env as plain KEY="VALUE" pairs.
+
+    Replaces the previous `. queued.env` shell sourcing, which executed
+    the file with /bin/sh and so treated $(...) and backticks as command
+    substitutions runnable at workload UID. This parser:
+      - accepts exactly `KEY="value"` or `KEY=value` per line
+      - strips one matching pair of surrounding single or double quotes
+      - ignores blank lines and `#` comments
+      - enforces an allowlist of keys
+      - rejects values containing newline / NUL / backtick / $
+      - never evaluates anything
+    """
+    if not path.is_file():
+        return
+    try:
+        raw = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return
+    for lineno, line in enumerate(raw.splitlines(), start=1):
+        s = line.strip()
+        if not s or s.startswith("#"):
+            continue
+        if "=" not in s:
+            continue
+        key, _, value = s.partition("=")
+        key = key.strip()
+        value = value.strip()
+        if key not in _ALLOWED_QUEUED_KEYS:
+            continue
+        # Strip a single surrounding pair of quotes if present. Do not
+        # perform any kind of expansion — the value is taken literally.
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
+            value = value[1:-1]
+        if any(ch in value for ch in _FORBIDDEN_VALUE_CHARS):
+            # Drop silently rather than crash the whole run — the TUI
+            # should have blocked this upstream, so reaching here means
+            # either a bug or tampering. Fail closed for this var.
+            continue
+        os.environ[key] = value
 
 
 def resolve_inputs(repo_root: Path) -> tuple[Path, list[Path], Path]:
@@ -40,7 +99,19 @@ def disable_pydantic_plugin_discovery() -> None:
 
 
 def wait_for_inference_ready(inference_url: str, attempts: int = 20, delay_seconds: int = 1) -> bool:
-    health_url = inference_url.split("/v1/", 1)[0] + "/health"
+    # Rebuild the health URL via urlparse rather than substring-splitting
+    # on "/v1/". A crafted INFERENCE_URL like
+    # http://attacker.example/v1/chat/completions would otherwise steer
+    # the health probe to http://attacker.example/health. This path is
+    # the first outbound request after VM boot and runs before any
+    # subsequent validation.
+    parsed = urllib.parse.urlparse(inference_url)
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        return False
+    netloc = parsed.hostname
+    if parsed.port:
+        netloc = f"{parsed.hostname}:{parsed.port}"
+    health_url = f"{parsed.scheme}://{netloc}/health"
     last_error = None
     for _ in range(attempts):
         try:
@@ -55,6 +126,13 @@ def wait_for_inference_ready(inference_url: str, attempts: int = 20, delay_secon
 
 def main() -> None:
     disable_pydantic_plugin_discovery()
+
+    # saaf_run.sh no longer sources queued.env (sourcing is code
+    # execution). Parse it here in Python with an allowlist instead,
+    # before main imports or reads any of these env vars.
+    queued_env = os.environ.get("SAAF_QUEUED_ENV", "/audit_workspace/queued.env")
+    _load_queued_env(Path(queued_env))
+
     from main import run_pipeline
 
     repo_root = Path(__file__).resolve().parent

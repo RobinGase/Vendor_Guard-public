@@ -2,6 +2,7 @@ from pathlib import Path
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill, Font, Alignment
 from models.finding import Finding
+from synthesizer.google_output import _sanitize_cell
 
 RAG_FILLS = {
     "Red":   PatternFill(start_color="FF6B6B", end_color="FF6B6B", fill_type="solid"),
@@ -38,8 +39,8 @@ def write_scorecard(scorecard: dict, output_path: Path):
     _style_header(ws, 1, headers)
 
     for row, (framework, data) in enumerate(scorecard.items(), start=2):
-        ws.cell(row=row, column=1, value=framework)
-        rag_cell = ws.cell(row=row, column=2, value=data["rag"])
+        ws.cell(row=row, column=1, value=_sanitize_cell(framework))
+        rag_cell = ws.cell(row=row, column=2, value=_sanitize_cell(data["rag"]))
         rag_cell.fill = RAG_FILLS.get(data["rag"], PatternFill())
         ws.cell(row=row, column=3, value=data.get("total", 0))
         ws.cell(row=row, column=4, value=data.get("gaps", 0))
@@ -62,14 +63,14 @@ def write_gap_register(findings: list[Finding], output_path: Path):
     _style_header(ws, 1, headers)
 
     for row, f in enumerate(findings, start=2):
-        ws.cell(row=row, column=1, value=f.framework)
-        ws.cell(row=row, column=2, value=f.control_id)
-        ws.cell(row=row, column=3, value=f.control_name)
-        ws.cell(row=row, column=4, value=f.status)
-        sev_cell = ws.cell(row=row, column=5, value=f.severity)
+        ws.cell(row=row, column=1, value=_sanitize_cell(f.framework))
+        ws.cell(row=row, column=2, value=_sanitize_cell(f.control_id))
+        ws.cell(row=row, column=3, value=_sanitize_cell(f.control_name))
+        ws.cell(row=row, column=4, value=_sanitize_cell(f.status))
+        sev_cell = ws.cell(row=row, column=5, value=_sanitize_cell(f.severity))
         sev_cell.fill = SEVERITY_FILLS.get(f.severity, PatternFill())
-        ws.cell(row=row, column=6, value=f.evidence)
-        ws.cell(row=row, column=7, value=f.recommendation)
+        ws.cell(row=row, column=6, value=_sanitize_cell(f.evidence))
+        ws.cell(row=row, column=7, value=_sanitize_cell(f.recommendation))
 
     for col in ws.columns:
         ws.column_dimensions[col[0].column_letter].width = 30
