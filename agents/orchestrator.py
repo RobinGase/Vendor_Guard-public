@@ -47,6 +47,15 @@ def build_vendor_profile(vendor_docs: str) -> VendorProfile:
         data = extract_json(raw)
     except Exception:
         data = _parse_profile_from_prose(raw)
+    # extract_json may return a list when the model emits `[{...}]`
+    # (a common nemotron/qwen behaviour when the prompt mentions JSON
+    # repeatedly). Unwrap a single-dict element; otherwise fall through
+    # to prose so .get below doesn't AttributeError on a list.
+    if isinstance(data, list):
+        if len(data) == 1 and isinstance(data[0], dict):
+            data = data[0]
+        else:
+            data = _parse_profile_from_prose(raw)
     # Strip markdown artifacts whichever path produced `data` — local
     # models sometimes wrap the name in `**bold**` even when emitting JSON.
     if isinstance(data.get("name"), str):
@@ -55,6 +64,14 @@ def build_vendor_profile(vendor_docs: str) -> VendorProfile:
         data["sector"] = _clean_profile_field(data["sector"])
     if isinstance(data.get("services"), list):
         data["services"] = [_clean_profile_field(s) for s in data["services"] if isinstance(s, str) and _clean_profile_field(s)]
+    # VendorProfile caps services and applicable_frameworks at 20 items;
+    # verbose prose responses (sub-processors + regions + certifications)
+    # can easily yield 25+. Truncate before construction so a chatty
+    # model doesn't take down the whole pipeline with a ValidationError.
+    if isinstance(data.get("services"), list):
+        data["services"] = data["services"][:20]
+    if isinstance(data.get("applicable_frameworks"), list):
+        data["applicable_frameworks"] = data["applicable_frameworks"][:20]
     return VendorProfile(**data)
 
 

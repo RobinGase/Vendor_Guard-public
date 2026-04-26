@@ -34,7 +34,7 @@ Outputs in both Microsoft Office (xlsx, docx) and Google Workspace (csv, html) f
 | Cluster | Frameworks | When it runs |
 |---|---|---|
 | Security & Compliance | ISO 27001, NIS2, CBW | Always |
-| Resilience | DORA | Always |
+| Resilience | DORA | Only if vendor sector matches financial keywords (banking, insurance, payments, fintech, credit, asset management) |
 | Government Baseline | BIO2 | Only if vendor serves Dutch government |
 | AI Trustworthiness | EU AI Act, ALTAI, EC Ethical Guidelines | Only if vendor is an AI system |
 

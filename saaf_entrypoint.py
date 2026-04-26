@@ -19,7 +19,13 @@ _ALLOWED_QUEUED_KEYS = frozenset({
 
 # Characters that indicate the value came from a shell-unsafe filename.
 # If any slip past the TUI-side denylist, reject the line here too —
-# defense in depth for the VM boundary.
+# defense in depth for the VM boundary. Note: `;` is intentionally NOT
+# in this list because it's the legitimate separator inside VENDOR_DOCS
+# (resolve_inputs splits on it). The TUI denylist (tui.py:_unsafe_chars)
+# is the sole gate for filenames containing `;` — if a filename with
+# `;` reaches us here, it has already been split into bogus path
+# fragments at the joiner level, and rejecting the whole var would
+# silently fall back to sample defaults. Same reasoning for `=`.
 _FORBIDDEN_VALUE_CHARS = ("\n", "\r", "\0", "`", "$")
 
 
@@ -104,7 +110,15 @@ def wait_for_inference_ready(inference_url: str, attempts: int = 20, delay_secon
     # http://attacker.example/v1/chat/completions would otherwise steer
     # the health probe to http://attacker.example/health. This path is
     # the first outbound request after VM boot and runs before any
-    # subsequent validation.
+    # subsequent validation — so it must apply the same scheme + host
+    # allowlist agents.base uses for every later inference call.
+    # Lazy import: keeps this entrypoint importable on bootstrap paths
+    # where agents.base may not yet be on sys.path.
+    try:
+        from agents.base import _validate_inference_url
+        _validate_inference_url(inference_url)
+    except (ImportError, ValueError):
+        return False
     parsed = urllib.parse.urlparse(inference_url)
     if parsed.scheme not in ("http", "https") or not parsed.hostname:
         return False

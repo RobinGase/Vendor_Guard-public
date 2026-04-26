@@ -393,7 +393,14 @@ def _stage_queued_inputs(session: Session) -> bool:
     # value), single quote (same problem if the quoting style changes),
     # and newline / CR / tab (line injection — an attacker-controlled
     # filename with \n could inject a whole extra VAR=value line).
-    _unsafe_chars = ('"', "\\", "$", "`", "'", "\n", "\r", "\t")
+    # `;` is the separator joining doc paths into VENDOR_DOCS — a
+    # filename containing `;` would split into bogus path fragments at
+    # the VM-side parser (saaf_entrypoint.resolve_inputs splits on `;`),
+    # crashing run_pipeline with FileNotFoundError. `=` is the KEY=VALUE
+    # delimiter in queued.env; a filename with `=` would corrupt the
+    # parse. Reject both upstream — the VM-side denylist can't catch
+    # them without breaking the legitimate VENDOR_DOCS separator.
+    _unsafe_chars = ('"', "\\", "$", "`", "'", "\n", "\r", "\t", ";", "=")
     for p in session.queued_files:
         bad = [repr(c) for c in _unsafe_chars if c in p.name]
         if bad:
@@ -1130,9 +1137,19 @@ def _chat_via_claude_code(system: str, user_prompt: str) -> str:
 
     try:
         try:
-            return asyncio.run(_drive())
+            result = asyncio.run(_drive())
         finally:
             stderr_log.close()
+        # Success: stderr capture is no longer needed; clean it up so
+        # we don't leak a vg_claude_stderr_*.log file under %TEMP% (or
+        # /tmp) on every chat turn. Only the no-chunks failure branch
+        # below keeps the file — that path embeds its name in the
+        # error message for diagnosis.
+        try:
+            os.unlink(stderr_log.name)
+        except OSError:
+            pass
+        return result
     except RuntimeError:
         # SDK-missing path; leave to caller for fallback.
         raise

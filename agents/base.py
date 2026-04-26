@@ -108,12 +108,17 @@ def invoke_chat_model(*, model: str, system: str | None = None, user_prompt: str
     import anthropic
 
     client = anthropic.Anthropic(api_key=require_anthropic_api_key())
-    message = client.messages.create(
-        model=model,
-        max_tokens=max_tokens,
-        system=system,
-        messages=[{"role": "user", "content": user_prompt}],
-    )
+    # Mirror the Path A `if system:` gate so callers that omit system=
+    # (e.g. synthesizer.memo.draft_memo_text) don't serialise
+    # "system": null on the wire.
+    kwargs: dict = {
+        "model": model,
+        "max_tokens": max_tokens,
+        "messages": [{"role": "user", "content": user_prompt}],
+    }
+    if system:
+        kwargs["system"] = system
+    message = client.messages.create(**kwargs)
     return message.content[0].text.strip()
 
 
@@ -306,6 +311,17 @@ def _salvage_truncated_array(raw: str) -> list:
 
 
 def fallback_finding_from_prose(*, framework: str, control_id: str, control_name: str, raw: str) -> list[dict]:
+    # The whole point of this fallback is to keep an agent from dying
+    # when the model couldn't be coerced into JSON. Two of Finding's
+    # validators would otherwise re-raise here: (1) evidence has a
+    # max_length=10000 cap, and the upstream call uses max_tokens=8192
+    # (~24-32 KB possible); (2) evidence rejects leading formula triggers
+    # (=, +, -, @, \t, \r), and a model frequently leads with "- vendor
+    # lacks…" or "= summary". Cap the length and prefix a single quote to
+    # neutralise the formula trigger so the artefact still gets written.
+    evidence = raw.strip()[:10000]
+    if evidence and evidence[0] in ("=", "+", "-", "@", "\t", "\r"):
+        evidence = "'" + evidence
     return [
         {
             "framework": framework,
@@ -313,7 +329,7 @@ def fallback_finding_from_prose(*, framework: str, control_id: str, control_name
             "control_name": control_name,
             "status": "Partial",
             "severity": "Medium",
-            "evidence": raw.strip(),
+            "evidence": evidence,
             "recommendation": "Review the returned narrative response and convert it into structured audit findings.",
         }
     ]
