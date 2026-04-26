@@ -13,7 +13,7 @@ Nothing about Vendor_Guard's logic changes under the shell. The shell wraps the 
 
 From Vendor_Guard's point of view, the only visible difference is that inference goes to `$INFERENCE_URL` (injected by the shell) instead of the Anthropic API.
 
-The shell is pinned at **v0.9.0-s10** (2026-04-19) for this integration. See the [shell CHANGELOG](https://github.com/RobinGase/saaf-compliance-shell/blob/main/CHANGELOG.md) for release notes and `docs/REVIEW_2026-04-19_hardening.md` for the hardening-wave log. The rail set, `/health` contract, and manifest schema described below match that checkpoint.
+The shell is pinned at **v0.9.1** (2026-04-19) for this integration. See the [shell CHANGELOG](https://github.com/RobinGase/saaf-compliance-shell/blob/main/CHANGELOG.md) for release notes and `docs/REVIEW_2026-04-19_hardening.md` for the hardening-wave log. The rail set, `/health` contract, and manifest schema described below match that checkpoint.
 
 ## The three files that make it work
 
@@ -29,7 +29,7 @@ Key declarations:
 - `resources: {vcpu_count: 2, mem_size_mib: 2048}` — VM sizing.
 - `pii.entities: [PERSON, EMAIL_ADDRESS, BSN_NL]` — which Presidio recognisers apply.
 
-Since shell v0.8.7 (H1) the manifest validator rejects shell metacharacters (`$`, `` ` ``, `;`, `&`, `|`, quotes, newlines) in `agent.entrypoint`, `agent.working_directory`, and `agent.env` keys/values. v0.9.0-s6 (RT-04) extended the same allowlist check to the manifest `name` field, which is interpolated into the kernel `ip=...:<name>:eth0:off` cmdline segment (hostname must not contain whitespace either). Anything that would have to be escaped before reaching the Firecracker kernel cmdline is now a hard validation failure, not a runtime escape.
+Since shell v0.8.7 (H1) the manifest validator rejects shell metacharacters (`$`, `` ` ``, `;`, `&`, `|`, quotes, newlines) in `agent.entrypoint`, `agent.working_directory`, and `agent.env` keys/values. v0.9.0 (RT-04) extended the same allowlist check to the manifest `name` field, which is interpolated into the kernel `ip=...:<name>:eth0:off` cmdline segment (hostname must not contain whitespace either). Anything that would have to be escaped before reaching the Firecracker kernel cmdline is now a hard validation failure, not a runtime escape.
 
 ### `saaf_run.sh`
 
@@ -78,7 +78,7 @@ saaf-shell run --manifest /path/to/vendor_guard/saaf-manifest.yaml
 
 The shell generates the VM config from the manifest, boots Firecracker, waits for the VM to exit, tears down the TAP device and iptables rules, and writes a `session_end` record to the audit log.
 
-Since shell v0.9.0-s2, `run_manifest` acquires a non-blocking host-wide session lock at `/var/run/saaf-shell/session.lock` before doing any setup. A second concurrent invocation on the same host fails fast with `SessionLockHeld` carrying the live holder's PID rather than racing on the shared NFS port, iptables rules, and `ip_forward` gate.
+Since shell v0.9.0, `run_manifest` acquires a non-blocking host-wide session lock at `/var/run/saaf-shell/session.lock` before doing any setup. A second concurrent invocation on the same host fails fast with `SessionLockHeld` carrying the live holder's PID rather than racing on the shared NFS port, iptables rules, and `ip_forward` gate.
 
 ## Troubleshooting
 

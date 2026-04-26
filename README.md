@@ -263,7 +263,7 @@ python -m pytest tests/ -v
 
 ## Sample files included
 
-Fictional company CloudSafe Solutions B.V.:
+Fictional company CloudSafe Solutions B.V. All names, addresses, dates, identifiers, and findings in these files are synthetic — no real entities or personal data.
 
 - `sample_vendor_q.txt` — main vendor risk questionnaire
 - `sample_soc2_report.txt` — SOC 2 Type II report with control test results
