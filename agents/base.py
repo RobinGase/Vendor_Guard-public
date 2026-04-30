@@ -321,7 +321,8 @@ def fallback_finding_from_prose(*, framework: str, control_id: str, control_name
     # neutralise the formula trigger so the artefact still gets written.
     evidence = raw.strip()[:10000]
     if evidence and evidence[0] in ("=", "+", "-", "@", "\t", "\r"):
-        evidence = "'" + evidence
+        # Slice to 9999 so the prepended quote keeps us at the 10000-char cap.
+        evidence = "'" + evidence[:9999]
     return [
         {
             "framework": framework,

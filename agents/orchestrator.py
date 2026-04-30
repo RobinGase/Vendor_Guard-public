@@ -84,7 +84,13 @@ def determine_frameworks(profile: VendorProfile) -> list[str]:
     # DORA is scoped to EU financial entities, not every vendor.
     agents = ["security"]
     sector = (profile.sector or "").lower()
-    if any(kw in sector for kw in FINANCIAL_SECTOR_KEYWORDS):
+    # Honour the LLM's own framework classification too: a SaaS or
+    # healthcare-IT vendor whose customers include EU financial entities
+    # is in DORA scope even though the vendor's own sector keyword
+    # wouldn't match. The orchestrator system prompt tells the model to
+    # populate applicable_frameworks for exactly this reason.
+    profile_frameworks = {f.upper() for f in (profile.applicable_frameworks or [])}
+    if any(kw in sector for kw in FINANCIAL_SECTOR_KEYWORDS) or "DORA" in profile_frameworks:
         agents.append("resilience")
     if profile.is_dutch_government_vendor:
         agents.append("gov_baseline")

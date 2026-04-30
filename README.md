@@ -34,7 +34,7 @@ Outputs in both Microsoft Office (xlsx, docx) and Google Workspace (csv, html) f
 | Cluster | Frameworks | When it runs |
 |---|---|---|
 | Security & Compliance | ISO 27001, NIS2, CBW | Always |
-| Resilience | DORA | Only if vendor sector matches financial keywords (banking, insurance, payments, fintech, credit, asset management) |
+| Resilience | DORA | When vendor sector matches financial keywords (banking, insurance, payments, fintech, credit, asset management) **or** the LLM tags DORA as applicable (e.g. SaaS / managed-services vendors with EU financial customers) |
 | Government Baseline | BIO2 | Only if vendor serves Dutch government |
 | AI Trustworthiness | EU AI Act, ALTAI, EC Ethical Guidelines | Only if vendor is an AI system |
 
@@ -122,6 +122,28 @@ pip install -r requirements.txt
 Then run through the shell (see **Usage** below). Full walkthrough: [`docs/SHELL_INTEGRATION.md`](docs/SHELL_INTEGRATION.md).
 
 ### Path B — Cloud standalone
+
+#### Quick install (recommended)
+
+One command, all platforms. Clones into `~/.local/share/vendor-guard` (or `%LOCALAPPDATA%\vendor-guard` on Windows), sets up an isolated venv, prompts once for your API key, and drops a `vendor-guard` launcher onto your PATH.
+
+```bash
+# Linux / macOS
+curl -fsSL https://raw.githubusercontent.com/RobinGase/Vendor_Guard/main/install.sh | bash
+```
+
+```powershell
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/RobinGase/Vendor_Guard/main/install.ps1 | iex
+```
+
+After install: `vendor-guard` (open a new terminal first on Windows so the PATH update is picked up). The API key is stored at `~/.config/vendor-guard/env` (Linux/macOS, mode 0600) or `%APPDATA%\vendor-guard\env` (Windows).
+
+Pre-set `ANTHROPIC_API_KEY` in the environment to skip the interactive prompt. Re-running the installer fast-forwards the checkout and rebuilds the venv against the pinned `requirements.txt`.
+
+Prereqs: `git`, and Python 3.11 or 3.12 (3.13+ excluded for NeMo/LangChain compatibility). The installer fails fast with a clear message if either is missing or wrong-versioned. Curious or paranoid? Read the script first — it's ~60 lines.
+
+#### Manual install
 
 ```bash
 git clone https://github.com/RobinGase/Vendor_Guard.git
